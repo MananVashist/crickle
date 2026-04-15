@@ -505,7 +505,7 @@ export default function App() {
       return pfx + String(idx).padStart(4,'0');
     })();
     
-    let shareUrl = code ? `https://crickle.app/?c=${code}` : 'https://crickle.app';
+    let shareUrl = code ? `https://crickle-alpha.vercel.app/?c=${code}` : 'https://crickle-alpha.vercel.app';
     if (code) {
       const h2h = encodeH2H(userName, tries, won);
       shareUrl += `&x=${h2h}`;
