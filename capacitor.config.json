@@ -1,0 +1,10 @@
+{
+  "appId": "com.crickleapp",
+  "appName": "Crickle",
+  "webDir": "dist",
+  "plugins": {
+    "AdMob": {
+      "appId": "ca-app-pub-5952766591392144~8607096446"
+    }
+  }
+}
