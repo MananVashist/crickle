@@ -877,7 +877,7 @@ export default function App() {
                       `🎮 ${stats.gamesPlayed} games played`,
                       ``,
                       `Think you can beat that? Share yours 👇`,
-                      `crickle.app`,
+                      `crickle-alpha.vercel.app`,
                     ].join('\n');
                     if (navigator.share) { try { await navigator.share({ text: statsText }); return; } catch {} }
                     try { await navigator.clipboard.writeText(statsText); alert('Copied!'); } catch {}
