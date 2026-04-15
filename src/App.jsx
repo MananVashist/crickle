@@ -24,7 +24,6 @@ const ALLOWED_NATIONS = new Set([
 
 const AD_UNIT_ID = 'ca-app-pub-5952766591392144/9128571701';
 
-// Is this running inside a Capacitor native app (not a browser)?
 const IS_NATIVE = typeof window !== 'undefined' && !!(window?.Capacitor?.isNativePlatform?.());
 
 const FORMAT_KEY = { Test: 'Test', ODI: 'ODI', T20: 'T20I' };
@@ -81,43 +80,25 @@ const HINT3_REVEAL_INSULTS = [
 const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 const HINTS = [
-  {
-    btnLabel:     '💡 Use Free Hint',
-    revealInsults: HINT1_REVEAL_INSULTS,
-    color: '#60a5fa',
-    dimColor: 'rgba(59,130,246,0.12)',
-    borderColor: 'rgba(59,130,246,0.35)',
-  },
-  {
-    btnLabel:     '📺 Watch Ad · Hint 2',
-    revealInsults: HINT2_REVEAL_INSULTS,
-    color: '#fb923c',
-    dimColor: 'rgba(249,115,22,0.12)',
-    borderColor: 'rgba(249,115,22,0.35)',
-  },
-  {
-    btnLabel:     '📺 Watch Ad · Hint 3',
-    revealInsults: HINT3_REVEAL_INSULTS,
-    color: '#f87171',
-    dimColor: 'rgba(239,68,68,0.12)',
-    borderColor: 'rgba(239,68,68,0.35)',
-  },
+  { btnLabel: '💡 Use Free Hint', revealInsults: HINT1_REVEAL_INSULTS, color: '#60a5fa', dimColor: 'rgba(59,130,246,0.12)', borderColor: 'rgba(59,130,246,0.35)' },
+  { btnLabel: '📺 Watch Ad · Hint 2', revealInsults: HINT2_REVEAL_INSULTS, color: '#fb923c', dimColor: 'rgba(249,115,22,0.12)', borderColor: 'rgba(249,115,22,0.35)' },
+  { btnLabel: '📺 Watch Ad · Hint 3', revealInsults: HINT3_REVEAL_INSULTS, color: '#f87171', dimColor: 'rgba(239,68,68,0.12)', borderColor: 'rgba(239,68,68,0.35)' },
 ];
 
 // ── Time & Daily Helpers ──
-const getTodayKey = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-const getYesterdayKey = () => {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+const getDaysSinceEpoch = () => {
+  const now = new Date();
+  const ist = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  return Math.floor(ist.getTime() / 86400000);
 };
+const getTodayKey = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
 // ── Stats helpers ──
 const STATS_KEY = 'crickle_stats_v1';
-const defaultStats = () => ({ streak:0, bestStreak:0, dailyStreak:0, bestDailyStreak:0, lastDailyDate:null, gamesPlayed:0, wins:0, totalGuesses:0, totalHints:0, hintGames:0 });
+const defaultStats = () => ({ streak:0, bestStreak:0, dailyStreak:0, bestDailyStreak:0, gamesPlayed:0, wins:0, totalGuesses:0, totalHints:0, hintGames:0 });
 const loadStats = () => { try { return { ...defaultStats(), ...JSON.parse(localStorage.getItem(STATS_KEY)||'{}') }; } catch { return defaultStats(); } };
 const saveStats = (s) => { try { localStorage.setItem(STATS_KEY, JSON.stringify(s)); } catch {} };
-const updateStats = (prev, { won, guesses, hintsUsed }) => {
+const updateStats = (prev, { won, guesses, hintsUsed, isDaily }) => {
   const next = { ...prev };
   next.gamesPlayed += 1;
   if (won) { 
@@ -126,19 +107,16 @@ const updateStats = (prev, { won, guesses, hintsUsed }) => {
     next.bestStreak = Math.max(next.bestStreak, next.streak); 
     next.totalGuesses += guesses; 
     
-    // Daily streak logic
-    const today = getTodayKey();
-    if (next.lastDailyDate === getYesterdayKey()) {
+    // Daily win streak increments on win, no matter how many days skipped
+    if (isDaily) {
       next.dailyStreak += 1;
-    } else if (next.lastDailyDate !== today) {
-      next.dailyStreak = 1;
+      next.bestDailyStreak = Math.max(next.bestDailyStreak, next.dailyStreak);
     }
-    next.lastDailyDate = today;
-    next.bestDailyStreak = Math.max(next.bestDailyStreak, next.dailyStreak);
   }
   else { 
     next.streak = 0; 
-    next.dailyStreak = 0;
+    // Only reset daily streak if actively played and lost
+    if (isDaily) next.dailyStreak = 0;
   }
   if (hintsUsed > 0) { next.totalHints += hintsUsed; next.hintGames += 1; }
   return next;
@@ -175,7 +153,6 @@ const decodeChallenge = (code) => {
 const normalizePlayers = (rawPlayers, mode) => {
   const fmtKey = FORMAT_KEY[mode];
   return rawPlayers
-    .filter((p) => ALLOWED_NATIONS.has(p.nation))
     .map((p) => {
       const isFlat = p.player_name !== undefined || p.hints !== undefined;
       const fmt    = isFlat ? null : p.formats?.[fmtKey];
@@ -190,20 +167,25 @@ const normalizePlayers = (rawPlayers, mode) => {
         nation:    p.nation,
         batting:   isFlat ? (p.batsman_type  ?? '-') : (p.battingStyle ?? '-'),
         bowling:   isFlat ? (p.bowling_type  ?? '-') : normBowl(p.bowlingStyle ?? 'None'),
-        debutYear: isFlat
-          ? (parseInt(p.debut_year, 10) || null)
-          : (fmt?.debutYear ?? null),
-        matches: isFlat
-          ? (p.matches != null && p.matches !== '' ? parseInt(p.matches, 10) : null)
-          : (fmt?.matches ?? null),
+        debutYear: isFlat ? (parseInt(p.debut_year, 10) || null) : (fmt?.debutYear ?? null),
+        matches:   isFlat ? (p.matches != null && p.matches !== '' ? parseInt(p.matches, 10) : null) : (fmt?.matches ?? null),
         runs:        runs,
         wickets:     wickets,
         keyStat:     runs    != null ? runs    : wickets != null ? wickets : null,
         keyStatType: runs    != null ? 'runs'  : wickets != null ? 'wickets' : null,
+        tier:      isFlat ? (p._tier || p.tier || 1) : (fmt?.tier || p.tier || p._tier || 1),
         trivia: isFlat
           ? { hint1: p.hints?.[0] ?? '', hint2: p.hints?.[1] ?? '', hint3: p.hints?.[2] ?? '' }
           : { hint1: p.trivia?.hint1 ?? '', hint2: p.trivia?.hint2 ?? '', hint3: p.trivia?.hint3 ?? '' },
       };
+    })
+    .filter((p) => {
+      if (!ALLOWED_NATIONS.has(p.nation)) return false;
+      const t = String(p.tier);
+      if (t === '1') return true; 
+      if (mode === 'Test' && p.debutYear && p.debutYear <= 1980) return false;
+      if (mode === 'ODI' && p.debutYear && p.debutYear <= 1990) return false;
+      return true;
     });
 };
 
@@ -213,15 +195,23 @@ const POOL = {
   T20:  normalizePlayers(t20PlayersRaw,  'T20'),
 };
 
-const freshGameState = (mode) => {
-  const pool = POOL[mode];
+const getDailyPlayer = (format) => {
+  const pool = POOL[format];
+  const t3 = pool.filter(p => String(p.tier) === '3');
+  const targetPool = t3.length > 0 ? t3 : pool;
+  return targetPool[getDaysSinceEpoch() % targetPool.length];
+};
+
+const freshGameState = (format, isDaily = false) => {
+  const pool = POOL[format];
   if (!pool.length) return null;
   return {
-    target:       pool[Math.floor(Math.random() * pool.length)],
+    target:       isDaily ? getDailyPlayer(format) : pool[Math.floor(Math.random() * pool.length)],
     guesses:      [],
     status:       'playing',
     hintsUsed:    0,
     revealBanner: null,
+    isDaily:      isDaily
   };
 };
 
@@ -299,26 +289,42 @@ export default function App() {
   const winWidth = useWindowWidth();
   const isMobile = winWidth < 768;
 
-  const [games, setGames] = useState(() => ({
-    Test: freshGameState('Test'),
-    ODI:  freshGameState('ODI'),
-    T20:  freshGameState('T20'),
-  }));
+  const [games, setGames] = useState(() => {
+    let savedDaily = null;
+    const dMode = ['Test', 'ODI', 'T20'][getDaysSinceEpoch() % 3];
+    try {
+      const saved = JSON.parse(localStorage.getItem('crickle_daily_state_v2'));
+      if (saved && saved.date === getTodayKey()) savedDaily = saved.game;
+    } catch {}
+
+    return {
+      Test: freshGameState('Test', false),
+      ODI:  freshGameState('ODI', false),
+      T20:  freshGameState('T20', false),
+      Daily: savedDaily || freshGameState(dMode, true)
+    };
+  });
+
+  const [activeTab, setActiveTab] = useState('endless'); 
   const [mode,   setMode]   = useState('Test');
   const [search, setSearch] = useState('');
 
   const [stats,          setStats]          = useState(loadStats);
   const [screen,         setScreen]         = useState('menu');
   const [menuTab,        setMenuTab]        = useState('play');
+  const [playFlow,       setPlayFlow]       = useState('main'); 
   const [showHintDrop,   setShowHintDrop]   = useState(false);
   const adListenerRef = useRef(null);
 
-  // H2H states
   const [userName, setUserName] = useState(() => { try { return localStorage.getItem('crickle_username') || ''; } catch { return ''; } });
   const [savedChallenges, setSavedChallenges] = useState(() => { try { return JSON.parse(localStorage.getItem('crickle_challenges') || '[]'); } catch { return []; } });
   const [showNamePrompt, setShowNamePrompt] = useState(false);
   const [activeChallenge, setActiveChallenge] = useState(null);
   const [webChallengePrompt, setWebChallengePrompt] = useState(null);
+
+  const dMode = ['Test', 'ODI', 'T20'][getDaysSinceEpoch() % 3];
+  const displayMode = activeTab === 'daily' ? dMode : mode;
+  const game = activeTab === 'daily' ? games.Daily : games[mode];
 
   useEffect(() => {
     if (!IS_NATIVE) return;
@@ -326,36 +332,46 @@ export default function App() {
       try {
         await AdMob.initialize({ initializeForTesting: false });
         await AdMob.prepareInterstitial({ adId: AD_UNIT_ID });
-      } catch (e) {
-        console.warn('AdMob init failed:', e);
-      }
+      } catch (e) {}
     };
     init();
   }, []);
 
-  const game = games[mode];
+  const patchGame = useCallback((patch) => {
+    setGames((prev) => {
+      const targetKey = activeTab === 'daily' ? 'Daily' : mode;
+      return {
+        ...prev,
+        [targetKey]: { ...prev[targetKey], ...patch },
+      };
+    });
+  }, [activeTab, mode]);
 
-  const patchGame = useCallback((mode, patch) => {
-    setGames((prev) => ({
-      ...prev,
-      [mode]: { ...prev[mode], ...patch },
-    }));
-  }, []);
-
-  const resetGame = useCallback((m) => {
+  const resetGame = useCallback(() => {
     setActiveChallenge(null);
-    setGames((prev) => ({ ...prev, [m]: freshGameState(m) }));
+    setGames((prev) => {
+      const targetKey = activeTab === 'daily' ? 'Daily' : mode;
+      const targetFormat = activeTab === 'daily' ? dMode : mode;
+      return { ...prev, [targetKey]: freshGameState(targetFormat, activeTab === 'daily') };
+    });
     setSearch('');
-  }, []);
-
-  const handleModeChange = (m) => {
-    setMode(m);
-    setSearch('');
-  };
+  }, [activeTab, mode, dMode]);
 
   // Sync storage
   useEffect(() => { saveStats(stats); }, [stats]);
   useEffect(() => { try { localStorage.setItem('crickle_challenges', JSON.stringify(savedChallenges)); } catch {} }, [savedChallenges]);
+  
+  // Persist Daily Game State strictly
+  useEffect(() => {
+    if (games.Daily) {
+      localStorage.setItem('crickle_daily_state_v2', JSON.stringify({ date: getTodayKey(), game: games.Daily }));
+    }
+  }, [games.Daily]);
+
+  const handleDailyStart = () => {
+    setActiveTab('daily');
+    setScreen('game');
+  };
 
   // Deep link parsing
   useEffect(() => {
@@ -413,7 +429,6 @@ export default function App() {
     return () => { listener?.remove(); };
   }, []);
 
-  // Confetti state
   const [showConfetti, setShowConfetti] = useState(false);
   const confettiRef = useRef(null);
 
@@ -465,14 +480,14 @@ export default function App() {
   useEffect(() => { if (screen !== 'game') setShowHintDrop(false); }, [screen]);
 
   const revealHint = useCallback((idx) => {
-    patchGame(mode, {
+    patchGame({
       hintsUsed:    idx + 1,
       revealBanner: pickRandom(HINTS[idx].revealInsults),
     });
     if (IS_NATIVE) {
       AdMob.prepareInterstitial({ adId: AD_UNIT_ID }).catch(() => {});
     }
-  }, [mode, patchGame]);
+  }, [patchGame]);
 
   const handleGameShare = useCallback(async () => {
     if (!game) return;
@@ -498,14 +513,16 @@ export default function App() {
       .join('\n');
 
     const code = (() => {
-      const pool = POOL[mode];
+      const pool = POOL[displayMode];
       const idx  = pool.findIndex(p => p.name === game.target.name);
       if (idx < 0) return null;
-      const pfx  = mode==='Test'?'TE':mode==='ODI'?'OD':'T2';
+      const pfx  = displayMode==='Test'?'TE':displayMode==='ODI'?'OD':'T2';
       return pfx + String(idx).padStart(4,'0');
     })();
     
-    let shareUrl = code ? `https://crickle-alpha.vercel.app/?c=${code}` : 'https://crickle-alpha.vercel.app';
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://crickle.app';
+    let shareUrl = code ? `${baseUrl}/?c=${code}` : baseUrl;
+    
     if (code) {
       const h2h = encodeH2H(userName, tries, won);
       shareUrl += `&x=${h2h}`;
@@ -515,7 +532,7 @@ export default function App() {
     
     const text = activeChallenge
       ? `🏏 Crickle H2H\nPlayed ${activeChallenge.sender}'s challenge (${scoreStr})\n\n${grid}\n\nCan you beat us? 👇`
-      : `🏏 Crickle ${mode} (${scoreStr})\n\n${grid}\n\nCan you beat me? 👇`;
+      : `🏏 Crickle ${displayMode} ${game.isDaily ? 'Daily ' : ''}(${scoreStr})\n\n${grid}\n\nCan you beat me? 👇`;
 
     if (navigator.share) {
       try {
@@ -526,15 +543,16 @@ export default function App() {
       }
     }
     try { await navigator.clipboard.writeText(text + '\n' + shareUrl); alert('Copied!'); } catch {}
-  }, [game, mode, userName, activeChallenge]);
+  }, [game, displayMode, userName, activeChallenge]);
 
   const playSavedChallenge = (chall) => {
     setMode(chall.mode);
+    setActiveTab('endless');
     const decoded = decodeChallenge(chall.code);
     if (decoded) {
       setGames(prev => ({
         ...prev,
-        [chall.mode]: { target: decoded.player, guesses: [], status: 'playing', hintsUsed: 0, revealBanner: null }
+        [chall.mode]: { target: decoded.player, guesses: [], status: 'playing', hintsUsed: 0, revealBanner: null, isDaily: false }
       }));
       setActiveChallenge(chall);
       setScreen('game');
@@ -548,13 +566,14 @@ export default function App() {
     const newStatus = player.name === game.target.name
       ? 'won'
       : next.length >= MAX_GUESSES ? 'lost' : 'playing';
-    patchGame(mode, { guesses: next, status: newStatus });
+    patchGame({ guesses: next, status: newStatus });
     setSearch('');
     if (newStatus !== 'playing') {
       setStats(prev => updateStats(prev, {
         won: newStatus === 'won',
         guesses: next.length,
         hintsUsed: game.hintsUsed,
+        isDaily: game.isDaily
       }));
 
       if (activeChallenge) {
@@ -567,8 +586,8 @@ export default function App() {
 
   const handleGiveUp = () => {
     if (!game || game.status !== 'playing') return;
-    patchGame(mode, { status: 'lost' });
-    setStats(prev => updateStats(prev, { won: false, guesses: game.guesses.length, hintsUsed: game.hintsUsed }));
+    patchGame({ status: 'lost' });
+    setStats(prev => updateStats(prev, { won: false, guesses: game.guesses.length, hintsUsed: game.hintsUsed, isDaily: game.isDaily }));
     if (activeChallenge) {
       setSavedChallenges(prev => prev.map(c => 
         c.id === activeChallenge.id ? { ...c, status: 'completed', myScore: { won: false, tries: game.guesses.length } } : c
@@ -579,7 +598,7 @@ export default function App() {
   const requestHint = async () => {
     if (!game || game.hintsUsed >= 3 || game.status !== 'playing') return;
     if (game.hintsUsed === 0) {
-      patchGame(mode, { hintsUsed: 1, revealBanner: pickRandom(HINTS[0].revealInsults) });
+      patchGame({ hintsUsed: 1, revealBanner: pickRandom(HINTS[0].revealInsults) });
       return;
     }
     
@@ -598,16 +617,14 @@ export default function App() {
         );
         await AdMob.showInterstitial();
       } catch (e) {
-        console.warn('AdMob show failed:', e);
         revealHint(idx);
       }
     } else {
-      // Web: Instant hint, no countdown
       revealHint(idx);
     }
   };
 
-  const pool = POOL[mode];
+  const pool = POOL[displayMode];
   const suggestions = pool
     .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()) && !game.guesses.find((g) => g.name === p.name))
     .slice(0, 8);
@@ -625,7 +642,7 @@ export default function App() {
         display:'flex', alignItems:'center', justifyContent:'space-between',
         marginBottom:'14px',
       }}>
-        <button onClick={() => setScreen('menu')} style={{
+        <button onClick={() => { setScreen('menu'); setPlayFlow('main'); }} style={{
           background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.15)',
           borderRadius:'8px', padding:'6px 12px', color:'rgba(210,240,255,0.85)',
           fontSize:'0.75rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:'6px',
@@ -643,15 +660,14 @@ export default function App() {
           background:'rgba(255,255,255,0.08)', border:`1px solid rgba(255,255,255,0.15)`,
           borderRadius:'8px', padding:'6px 12px',
           fontSize:'0.75rem', fontWeight:800,
-          color: fmtColors[mode] ?? '#fff',
+          color: fmtColors[displayMode] ?? '#fff',
         }}>
-          {mode}
+          {game.isDaily ? `DAILY ${displayMode}` : displayMode}
         </div>
       </div>
     );
   }
 
-  // ── Menu screen ──────────────────────────────────────────────
   const avgGuesses = stats.wins > 0 ? (stats.totalGuesses / stats.wins).toFixed(1) : '—';
   const winRate    = stats.gamesPlayed > 0 ? Math.round(stats.wins / stats.gamesPlayed * 100) : 0;
   const hintRate   = stats.gamesPlayed > 0 ? Math.round(stats.hintGames / stats.gamesPlayed * 100) : 0;
@@ -686,15 +702,7 @@ export default function App() {
       }}>
         <div style={{ position:'absolute', inset:0, background:'rgba(0,10,5,0.78)', zIndex:0 }} />
 
-        {/* Top Right Store Links (Web Only) */}
-        {!IS_NATIVE && (
-          <div style={{ position:'absolute', top:'16px', right:'16px', display:'flex', gap:'10px', zIndex:10 }}>
-            <a href="YOUR_APP_STORE_LINK" target="_blank" rel="noreferrer" title="Get it on the App Store" style={{ width:'38px', height:'38px', borderRadius:'10px', background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', textDecoration:'none', fontSize:'1.2rem', boxShadow:'0 4px 12px rgba(0,0,0,0.3)' }}>🍏</a>
-            <a href="YOUR_PLAY_STORE_LINK" target="_blank" rel="noreferrer" title="Get it on Google Play" style={{ width:'38px', height:'38px', borderRadius:'10px', background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', textDecoration:'none', fontSize:'1.2rem', boxShadow:'0 4px 12px rgba(0,0,0,0.3)' }}>▶️</a>
-          </div>
-        )}
-
-        <div style={{ position:'relative', zIndex:1, width:'100%', maxWidth:'480px', padding:'40px 20px 60px', display:'flex', flexDirection:'column', alignItems:'center' }}>
+        <div style={{ position:'relative', zIndex:1, width:'100%', maxWidth:'480px', padding:'40px 20px 60px', display:'flex', flexDirection:'column', alignItems:'center', minHeight:'100vh' }}>
 
           {/* Logo */}
           <div style={{ textAlign:'center', marginBottom:'32px' }}>
@@ -715,7 +723,7 @@ export default function App() {
             borderRadius:'12px', padding:'4px', marginBottom:'24px',
           }}>
             {TABS.map(t => (
-              <button key={t.id} onClick={() => setMenuTab(t.id)} style={{
+              <button key={t.id} onClick={() => { setMenuTab(t.id); setPlayFlow('main'); }} style={{
                 flex:1, padding:'9px 4px', borderRadius:'8px', border:'none',
                 cursor:'pointer', fontWeight:700, fontSize:'0.82rem', transition:'all 0.15s',
                 background: menuTab === t.id ? 'linear-gradient(135deg,#22c55e,#16a34a)' : 'transparent',
@@ -726,16 +734,56 @@ export default function App() {
           </div>
 
           {/* ── PLAY tab ── */}
-          {menuTab === 'play' && (
+          {menuTab === 'play' && playFlow === 'main' && (
+            <div style={{ width:'100%', display:'flex', flexDirection:'column', gap:'16px' }}>
+              <button onClick={handleDailyStart} style={{
+                width:'100%', padding:'20px', background:'rgba(34,197,94,0.15)',
+                border:'2px solid rgba(34,197,94,0.4)', borderRadius:'14px',
+                cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between',
+                transition:'all 0.15s',
+              }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'14px' }}>
+                  <span style={{ fontSize:'1.8rem' }}>📅</span>
+                  <div style={{ textAlign:'left' }}>
+                    <div style={{ fontWeight:900, fontSize:'1.1rem', color:'#22c55e' }}>Daily Puzzle</div>
+                    <div style={{ fontSize:'0.75rem', color:'rgba(210,240,255,0.6)', marginTop:2 }}>Hard mode. Not for noobs</div>
+                  </div>
+                </div>
+                <span style={{ color:'#22c55e', fontSize:'1.2rem' }}>→</span>
+              </button>
+
+              <button onClick={() => setPlayFlow('endless')} style={{
+                width:'100%', padding:'20px', background:'rgba(255,255,255,0.05)',
+                border:'2px solid rgba(255,255,255,0.1)', borderRadius:'14px',
+                cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between',
+                transition:'all 0.15s',
+              }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'14px' }}>
+                  <span style={{ fontSize:'1.8rem' }}>♾️</span>
+                  <div style={{ textAlign:'left' }}>
+                    <div style={{ fontWeight:800, fontSize:'1.1rem', color:'#fff' }}>Endless Mode</div>
+                    <div style={{ fontSize:'0.75rem', color:'rgba(210,240,255,0.5)', marginTop:2 }}>You probably need the practice. Disappointing</div>
+                  </div>
+                </div>
+                <span style={{ color:'rgba(255,255,255,0.4)', fontSize:'1.2rem' }}>→</span>
+              </button>
+            </div>
+          )}
+
+          {menuTab === 'play' && playFlow === 'endless' && (
             <div style={{ width:'100%' }}>
-              <p style={{ color:'rgba(210,240,255,0.5)', fontSize:'0.75rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 12px' }}>Select Format</p>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'12px' }}>
+                <button onClick={() => setPlayFlow('main')} style={{ background:'transparent', border:'none', color:'rgba(210,240,255,0.6)', fontWeight:800, cursor:'pointer', padding:0, fontSize:'0.85rem' }}>← Back</button>
+                <p style={{ color:'rgba(210,240,255,0.5)', fontSize:'0.75rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', margin:0 }}>Select Format</p>
+                <div style={{ width:'40px' }} /> {/* Spacer */}
+              </div>
               <div style={{ display:'flex', flexDirection:'column', gap:'10px', marginBottom:'28px' }}>
                 {['Test','ODI','T20'].map(f => {
                   const isEmpty = POOL[f].length === 0;
                   const active  = mode === f;
-                  const inProg  = games[f]?.status === 'playing' && games[f]?.guesses?.length > 0;
+                  const inProg  = games[f]?.status === 'playing' && games[f]?.guesses?.length > 0 && !games[f].isDaily;
                   return (
-                    <button key={f} onClick={() => !isEmpty && handleModeChange(f)} style={{
+                    <button key={f} onClick={() => { if(!isEmpty) { setMode(f); handleModeChange(f); } }} style={{
                       width:'100%', padding:'16px 20px',
                       background: active ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.05)',
                       border:`2px solid ${active ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.1)'}`,
@@ -759,7 +807,10 @@ export default function App() {
                   );
                 })}
               </div>
-              <button onClick={() => setScreen('game')} style={{
+              <button onClick={() => {
+                setActiveTab('endless');
+                setScreen('game');
+              }} style={{
                 width:'100%', padding:'16px',
                 background:'linear-gradient(135deg,#22c55e,#16a34a)',
                 border:'none', borderRadius:'12px', color:'#fff',
@@ -767,10 +818,10 @@ export default function App() {
                 fontFamily:"'Outfit',system-ui,sans-serif",
                 boxShadow:'0 4px 24px rgba(34,197,94,0.35)',
               }}>
-                {games[mode]?.guesses?.length > 0 ? `Continue ${mode} Game` : `Start ${mode} Game`}
+                {games[mode]?.guesses?.length > 0 && !games[mode].isDaily ? `Continue ${mode} Game` : `Start ${mode} Game`}
               </button>
-              {games[mode]?.guesses?.length > 0 && (
-                <button onClick={() => { resetGame(mode); setScreen('game'); }} style={{
+              {games[mode]?.guesses?.length > 0 && !games[mode].isDaily && (
+                <button onClick={() => { setActiveTab('endless'); resetGame(mode); setScreen('game'); }} style={{
                   width:'100%', padding:'12px', marginTop:'8px',
                   background:'transparent', border:'1px solid rgba(255,255,255,0.15)',
                   borderRadius:'12px', color:'rgba(210,240,255,0.6)',
@@ -825,7 +876,7 @@ export default function App() {
                 <h3 style={{ color: '#22c55e', margin: '0 0 12px', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>📅 Daily Puzzle</h3>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
                   {[
-                    { label:'Current Streak', value: stats.dailyStreak + (stats.dailyStreak > 0 ? ' 🔥' : ''), big:true },
+                    { label:'Win Streak', value: stats.dailyStreak + (stats.dailyStreak > 0 ? ' 🔥' : ''), big:true },
                     { label:'Best Streak', value: stats.bestDailyStreak },
                   ].map(({ label, value, big }) => (
                     <div key={label} style={{
@@ -844,7 +895,7 @@ export default function App() {
                 <h3 style={{ color: '#7dd3fc', margin: '0 0 12px', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>♾️ Endless Mode</h3>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
                   {[
-                    { label:'Session Streak', value: stats.streak },
+                    { label:'Win Streak', value: stats.streak },
                     { label:'Best Streak', value: stats.bestStreak },
                     { label:'Win Rate', value: `${winRate}%` },
                     { label:'Avg Guesses', value: avgGuesses },
@@ -867,6 +918,7 @@ export default function App() {
                 <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
                   <button onClick={async () => {
                     const streakLine = stats.streak > 0 ? `🔥 ${stats.streak} game streak` : `No active streak`;
+                    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'crickle.app';
                     const statsText = [
                       `I\u2019m playing Crickle 🏏`,
                       ``,
@@ -877,7 +929,7 @@ export default function App() {
                       `🎮 ${stats.gamesPlayed} games played`,
                       ``,
                       `Think you can beat that? Share yours 👇`,
-                      `crickle-alpha.vercel.app`,
+                      baseUrl,
                     ].join('\n');
                     if (navigator.share) { try { await navigator.share({ text: statsText }); return; } catch {} }
                     try { await navigator.clipboard.writeText(statsText); alert('Copied!'); } catch {}
@@ -917,20 +969,41 @@ export default function App() {
                   </div>
                 ))}
               </div>
-              <div style={{ background:'rgba(0,30,12,0.8)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:'12px', padding:'14px 16px' }}>
+              <div style={{ background:'rgba(0,30,12,0.8)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:'12px', padding:'14px 16px', marginBottom:'12px' }}>
                 <p style={{ margin:'0 0 8px', fontWeight:700, fontSize:'0.85rem', color:'#fff' }}>Stats shown per guess:</p>
                 <p style={{ margin:0, color:'rgba(210,240,255,0.6)', fontSize:'0.8rem', lineHeight:1.7 }}>
                   Runs · Wickets · Debut Year · Matches · Nation · Batting style · Bowling type
                 </p>
               </div>
-              <div style={{ background:'rgba(34,197,94,0.08)', border:'1px solid rgba(34,197,94,0.2)', borderRadius:'12px', padding:'14px 16px', marginTop:'12px' }}>
-                <p style={{ margin:0, color:'rgba(210,240,255,0.7)', fontSize:'0.8rem', lineHeight:1.7 }}>
-                  💡 First hint is always free. Hints 2 and 3 require watching a short ad.
-                  The more hints you use, the more the game will judge you.
-                </p>
+              <div style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:'12px', padding:'14px 16px' }}>
+                <p style={{ margin:'0 0 8px', fontWeight:700, fontSize:'0.85rem', color:'#fff' }}>The Player Pool:</p>
+                <ul style={{ margin:0, paddingLeft:'20px', color:'rgba(210,240,255,0.6)', fontSize:'0.8rem', lineHeight:1.7 }}>
+                  <li>Only players from Test-playing nations are included.</li>
+                  <li><strong>Test:</strong> Debuts after 1980 (unless they are legends).</li>
+                  <li><strong>ODI:</strong> Debuts after 1990 (unless they are legends).</li>
+                </ul>
               </div>
             </div>
           )}
+
+          {/* Web App Store Badges + Footer Links */}
+          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+            {!IS_NATIVE && menuTab === 'play' && playFlow === 'main' && (
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', width: '100%', marginTop: '30px' }}>
+                <a href="#" target="_blank" rel="noreferrer">
+                  <img src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg" alt="Download on the App Store" style={{ height: '42px' }} />
+                </a>
+                <a href="#" target="_blank" rel="noreferrer">
+                  <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Get it on Google Play" style={{ height: '42px' }} />
+                </a>
+              </div>
+            )}
+            
+            <div style={{ display: 'flex', gap: '20px', marginTop: '30px', fontSize: '0.75rem' }}>
+              <a href="/privacy.html" target="_blank" style={{ color: 'rgba(255,255,255,0.4)', textDecoration: 'underline' }}>Privacy Policy</a>
+              <a href="/support.html" target="_blank" style={{ color: 'rgba(255,255,255,0.4)', textDecoration: 'underline' }}>Support</a>
+            </div>
+          </div>
 
         </div>
       </div>
@@ -1009,7 +1082,7 @@ export default function App() {
           display:'flex', alignItems:'center', justifyContent:'center',
           background:'rgba(0,0,0,0.75)',
           padding:'20px',
-        }} onClick={() => patchGame(mode, { status: 'won_dismissed' })}>
+        }} onClick={() => patchGame({ status: 'won_dismissed' })}>
           <div onClick={e => e.stopPropagation()} style={{
             background:'linear-gradient(135deg, rgba(0,40,15,0.98) 0%, rgba(0,20,8,0.98) 100%)',
             border:'2px solid rgba(34,197,94,0.5)',
@@ -1059,15 +1132,17 @@ export default function App() {
                 fontWeight:900, fontSize:'0.95rem', cursor:'pointer',
                 boxShadow:'0 4px 20px rgba(34,197,94,0.4)',
                 fontFamily:"'Outfit',system-ui,sans-serif",
-              }}>📤 Challenge a Friend</button>
-              <button onClick={() => { resetGame(mode); }} style={{
-                width:'100%', padding:'12px',
-                background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.15)',
-                borderRadius:'12px', color:'rgba(210,240,255,0.8)',
-                fontWeight:800, fontSize:'0.88rem', cursor:'pointer',
-                fontFamily:"'Outfit',system-ui,sans-serif",
-              }}>🎮 New Game</button>
-              <button onClick={() => patchGame(mode, { status: 'won_dismissed' })} style={{
+              }}>📤 Share</button>
+              {activeTab === 'endless' && (
+                <button onClick={() => { resetGame(mode); }} style={{
+                  width:'100%', padding:'12px',
+                  background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.15)',
+                  borderRadius:'12px', color:'rgba(210,240,255,0.8)',
+                  fontWeight:800, fontSize:'0.88rem', cursor:'pointer',
+                  fontFamily:"'Outfit',system-ui,sans-serif",
+                }}>🎮 New Game</button>
+              )}
+              <button onClick={() => patchGame({ status: 'won_dismissed' })} style={{
                 background:'none', border:'none', color:'rgba(210,240,255,0.35)',
                 fontSize:'0.75rem', cursor:'pointer', padding:'4px',
                 fontFamily:"'Outfit',system-ui,sans-serif",
@@ -1099,12 +1174,14 @@ export default function App() {
               borderRadius:'8px', padding:'8px 14px',
               color:'#22c55e', fontWeight:800, fontSize:'0.8rem', cursor:'pointer',
             }}>📤 Share</button>
-            <button onClick={() => resetGame(mode)} style={{
-              background:'#22c55e', color:'#fff', border:'none',
-              borderRadius:'8px', padding:'8px 14px',
-              fontWeight:800, cursor:'pointer', fontSize:'0.8rem',
-              boxShadow:'0 0 12px rgba(34,197,94,0.3)',
-            }}>New Game</button>
+            {activeTab === 'endless' && (
+              <button onClick={() => resetGame(mode)} style={{
+                background:'#22c55e', color:'#fff', border:'none',
+                borderRadius:'8px', padding:'8px 14px',
+                fontWeight:800, cursor:'pointer', fontSize:'0.8rem',
+                boxShadow:'0 0 12px rgba(34,197,94,0.3)',
+              }}>New Game</button>
+            )}
           </div>
         </div>
       )}
@@ -1131,11 +1208,13 @@ export default function App() {
               borderRadius:'8px', padding:'8px 14px',
               color:'#22c55e', fontWeight:800, fontSize:'0.8rem', cursor:'pointer',
             }}>📤 Share</button>
-            <button onClick={() => resetGame(mode)} style={{
-              background:'#22c55e', color:'#fff', border:'none',
-              borderRadius:'8px', padding:'8px 14px',
-              fontWeight:800, cursor:'pointer', fontSize:'0.8rem',
-            }}>New Game</button>
+            {activeTab === 'endless' && (
+              <button onClick={() => resetGame(mode)} style={{
+                background:'#22c55e', color:'#fff', border:'none',
+                borderRadius:'8px', padding:'8px 14px',
+                fontWeight:800, cursor:'pointer', fontSize:'0.8rem',
+              }}>New Game</button>
+            )}
           </div>
         </div>
       )}
@@ -1148,7 +1227,7 @@ export default function App() {
           marginBottom:'8px',
         }}>
           <span style={{ color:'rgba(210,240,255,0.92)', fontSize:'0.8rem', fontWeight:600 }}>
-            {activeChallenge ? `Beat ${activeChallenge.sender}'s Score` : `Guess the ${mode} Cricketer`}
+            {activeChallenge ? `Beat ${activeChallenge.sender}'s Score` : `Guess the ${displayMode} Cricketer`}
           </span>
           <span style={{
             color: game.guesses.length >= 6 ? '#f87171' : '#7dd3fc',
@@ -1188,7 +1267,7 @@ export default function App() {
       <div style={{ position:'relative', width:'100%', maxWidth:'480px', marginBottom:'12px', zIndex:30 }}>
         <input
           type="text"
-          placeholder={game.status !== 'playing' ? 'Game over — start a new game' : 'Search for a player…'}
+          placeholder={game.status !== 'playing' ? 'Game over — return to menu' : 'Search for a player…'}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           disabled={game.status !== 'playing'}
