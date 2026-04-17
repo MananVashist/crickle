@@ -406,8 +406,10 @@ export default function App() {
         
         if (!IS_NATIVE) {
           setWebChallengePrompt(newChall);
+          setScreen('game'); // ensure game screen is visible for web too
         } else {
           setMenuTab('challenges');
+          setScreen('menu');
         }
       } catch {}
     };
@@ -496,47 +498,45 @@ export default function App() {
       return;
     }
 
-    const won      = game.status === 'won' || game.status === 'won_dismissed';
-    const tries    = game.guesses.length;
-    const RCOLS    = ['runs','wickets','debutYear','matches','nation','batting','bowling'];
-    const boxR = (key, gVal, tVal, g) => {
-      if (key==='runs')    { if(gVal==null&&tVal==null)return'🟩'; if(gVal==null||tVal==null)return'⬛'; if(gVal===tVal)return'🟩'; return Math.abs(gVal-tVal)<=1500?'🟨':'⬛'; }
-      if (key==='wickets') { if(gVal==null&&tVal==null)return'🟩'; if(gVal==null||tVal==null)return'⬛'; if(gVal===tVal)return'🟩'; return Math.abs(gVal-tVal)<=50?'🟨':'⬛'; }
-      if (gVal==null&&tVal==null) return '🟩';
-      if (gVal==null||tVal==null) return '⬛';
-      if (gVal===tVal) return '🟩';
-      const d = Math.abs(gVal-tVal);
-      return ((key==='debutYear'&&d<=3)||(key==='matches'&&d<=20))?'🟨':'⬛';
-    };
-    const grid = [...game.guesses].reverse()
-      .map(g => RCOLS.map(k => boxR(k, g[k], game.target[k], g)).join(''))
-      .join('\n');
+    const won   = game.status === 'won' || game.status === 'won_dismissed';
+    const tries = game.guesses.length;
 
     const code = (() => {
       const pool = POOL[displayMode];
       const idx  = pool.findIndex(p => p.name === game.target.name);
       if (idx < 0) return null;
-      const pfx  = displayMode==='Test'?'TE':displayMode==='ODI'?'OD':'T2';
-      return pfx + String(idx).padStart(4,'0');
+      const pfx  = displayMode === 'Test' ? 'TE' : displayMode === 'ODI' ? 'OD' : 'T2';
+      return pfx + String(idx).padStart(4, '0');
     })();
-    
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://crickle.app';
-    let shareUrl = code ? `${baseUrl}/?c=${code}` : baseUrl;
-    
-    if (code) {
-      const h2h = encodeH2H(userName, tries, won);
-      shareUrl += `&x=${h2h}`;
-    }
 
-    const scoreStr = won ? `${tries}/${MAX_GUESSES}` : `X/${MAX_GUESSES}`;
-    
-    const text = activeChallenge
-      ? `🏏 Crickle H2H\nPlayed ${activeChallenge.sender}'s challenge (${scoreStr})\n\n${grid}\n\nCan you beat us? 👇`
-      : `🏏 Crickle ${displayMode} ${game.isDaily ? 'Daily ' : ''}(${scoreStr})\n\n${grid}\n\nCan you beat me? 👇`;
+    const BASE     = 'https://crickle-game.vercel.app';
+    const h2h      = code ? encodeH2H(userName, tries, won) : null;
+    const shareUrl = code ? `${BASE}/?c=${code}&x=${h2h}` : BASE;
+
+    const hintsStr = game.hintsUsed === 0
+      ? '0 hints'
+      : `${game.hintsUsed} hint${game.hintsUsed > 1 ? 's' : ''}`;
+    const triesStr = won
+      ? `${tries} ${tries === 1 ? 'try' : 'tries'}`
+      : 'gave up';
+
+    let text;
+    if (activeChallenge) {
+      const theirResult = activeChallenge.senderScore?.won
+        ? `${activeChallenge.senderScore.tries} ${activeChallenge.senderScore.tries === 1 ? 'try' : 'tries'}`
+        : 'gave up';
+      text = won
+        ? `I beat ${activeChallenge.sender}'s Crickle challenge 🏏\nThey got it in ${theirResult}. I got it in ${triesStr} with ${hintsStr}.\nThink you can beat both of us? Bet you can't.`
+        : `I tried ${activeChallenge.sender}'s Crickle challenge 🏏\nThey got it in ${theirResult}. I ${triesStr}.\nBet you can't get it either.`;
+    } else {
+      text = won
+        ? `I'm playing Crickle 🏏 — the cricket Wordle.\nI guessed this player in ${triesStr} with ${hintsStr}. Can you do better? Bet you can't.`
+        : `I'm playing Crickle 🏏 — the cricket Wordle.\nI gave up on this one. Think you can get it?`;
+    }
 
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'Crickle 🏏', text, url: shareUrl });
+        await navigator.share({ title: 'Crickle 🏏', text: text + '\n', url: shareUrl });
         return;
       } catch (e) {
         if (e?.name === 'AbortError') return;
@@ -1025,23 +1025,80 @@ export default function App() {
       {renderGameHeader()}
 
       {/* Web Challenge Interceptor Modal */}
-      {webChallengePrompt && !IS_NATIVE && (
-        <div style={{ position:'fixed', inset:0, zIndex:2000, background:'rgba(0,15,5,0.95)', display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }}>
-          <div style={{ background:'rgba(0,30,10,0.9)', border:'1px solid rgba(34,197,94,0.4)', borderRadius:'24px', padding:'32px', textAlign:'center', maxWidth:'340px', width:'100%', boxShadow:'0 20px 60px rgba(0,0,0,0.8)' }}>
-            <div style={{ fontSize:'3rem', marginBottom:'16px' }}>🏏</div>
-            <h2 style={{ margin:'0 0 8px', color:'#fff', fontSize:'1.4rem' }}>{webChallengePrompt.sender} challenged you!</h2>
-            <p style={{ color:'rgba(255,255,255,0.6)', fontSize:'0.9rem', marginBottom:'24px' }}>Get the ultimate experience in the app, or play right here in your browser.</p>
-            
-            <div style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
-              <a href="#" style={{ background:'#fff', color:'#000', padding:'14px', borderRadius:'12px', fontWeight:800, textDecoration:'none', fontSize:'0.95rem' }}>Download the App</a>
-              <button onClick={() => {
-                playSavedChallenge(webChallengePrompt);
-                setWebChallengePrompt(null);
-              }} style={{ background:'#22c55e', color:'#fff', padding:'14px', borderRadius:'12px', border:'none', fontWeight:800, cursor:'pointer', fontSize:'0.95rem' }}>Play in Browser</button>
+      {webChallengePrompt && !IS_NATIVE && (() => {
+        const isAndroid = /android/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '');
+        const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.crickleapp';
+        // intent:// URL opens app if installed, falls back to Play Store if not
+        const challengeUrl = `https://crickle-game.vercel.app/?c=${webChallengePrompt.code}&x=${encodeH2H(webChallengePrompt.sender, webChallengePrompt.senderScore?.tries ?? 0, webChallengePrompt.senderScore?.won ?? false)}`;
+        const intentUrl = `intent://open?c=${webChallengePrompt.code}#Intent;scheme=crickle;package=com.crickleapp;S.browser_fallback_url=${encodeURIComponent(PLAY_STORE_URL)};end`;
+        const senderResult = webChallengePrompt.senderScore?.won
+          ? `${webChallengePrompt.senderScore.tries} ${webChallengePrompt.senderScore.tries === 1 ? 'try' : 'tries'}`
+          : 'gave up';
+
+        return (
+          <div style={{ position:'fixed', inset:0, zIndex:2000, background:'rgba(0,10,5,0.97)', display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }}>
+            <div style={{ background:'rgba(0,30,10,0.97)', border:'1px solid rgba(34,197,94,0.4)', borderRadius:'24px', padding:'28px 24px', textAlign:'center', maxWidth:'340px', width:'100%', boxShadow:'0 20px 60px rgba(0,0,0,0.8)' }}>
+
+              {/* Challenge card */}
+              <div style={{
+                background:'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(0,20,8,0.9) 100%)',
+                border:'1px solid rgba(34,197,94,0.3)', borderRadius:'16px',
+                padding:'20px 16px', marginBottom:'20px',
+              }}>
+                <div style={{ fontSize:'2.2rem', marginBottom:'8px' }}>🏏</div>
+                <div style={{ fontSize:'1rem', fontWeight:900, color:'#fff', marginBottom:'4px' }}>
+                  {webChallengePrompt.sender} challenged you!
+                </div>
+                <div style={{ fontSize:'0.78rem', color:'rgba(210,240,255,0.55)', marginBottom:'12px' }}>
+                  They got it in <span style={{ color:'#fbbf24', fontWeight:800 }}>{senderResult}</span>. Can you beat that?
+                </div>
+                <div style={{
+                  display:'inline-block',
+                  background:'rgba(34,197,94,0.15)', border:'1px solid rgba(34,197,94,0.35)',
+                  borderRadius:'8px', padding:'4px 14px',
+                  fontSize:'0.72rem', fontWeight:700, color:'#86efac', letterSpacing:'0.08em',
+                }}>
+                  {webChallengePrompt.mode} · CRICKLE H2H
+                </div>
+              </div>
+
+              <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
+                {isAndroid && (
+                  <a href={intentUrl} style={{
+                    background:'linear-gradient(135deg,#22c55e,#16a34a)',
+                    color:'#fff', padding:'14px', borderRadius:'12px',
+                    fontWeight:900, textDecoration:'none', fontSize:'0.95rem',
+                    display:'block',
+                  }}>
+                    📱 Open in App
+                  </a>
+                )}
+                <button onClick={() => {
+                  playSavedChallenge(webChallengePrompt);
+                  setWebChallengePrompt(null);
+                }} style={{
+                  background: isAndroid ? 'rgba(255,255,255,0.08)' : 'linear-gradient(135deg,#22c55e,#16a34a)',
+                  color:'#fff', padding:'14px', borderRadius:'12px',
+                  border: isAndroid ? '1px solid rgba(255,255,255,0.15)' : 'none',
+                  fontWeight:800, cursor:'pointer', fontSize:'0.95rem',
+                  fontFamily:"'Outfit',system-ui,sans-serif",
+                }}>
+                  🌐 Play in Browser
+                </button>
+                {isAndroid && (
+                  <a href={PLAY_STORE_URL} target="_blank" rel="noreferrer" style={{
+                    color:'rgba(210,240,255,0.4)', fontSize:'0.75rem',
+                    textDecoration:'none', padding:'6px',
+                    display:'block',
+                  }}>
+                    Don't have the app? Download it →
+                  </a>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Confetti canvas */}
       {showConfetti && (
@@ -1109,18 +1166,40 @@ export default function App() {
 
             {/* H2H Scoreboard Comparison */}
             {activeChallenge && (
-              <div style={{ background:'rgba(0,0,0,0.4)', borderRadius:'12px', border:'1px solid rgba(255,255,255,0.1)', padding:'14px', marginBottom:'24px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <div style={{ textAlign:'left' }}>
-                  <div style={{ fontSize:'0.75rem', color:'rgba(255,255,255,0.5)', textTransform:'uppercase' }}>{activeChallenge.sender}</div>
-                  <div style={{ fontSize:'1.1rem', fontWeight:800, color: activeChallenge.senderScore?.won ? '#fff' : '#ef4444' }}>
-                    {activeChallenge.senderScore?.won ? `${activeChallenge.senderScore.tries} tries` : 'Lost'}
+              <div style={{
+                background:'rgba(0,0,0,0.4)', borderRadius:'12px',
+                border:'1px solid rgba(255,255,255,0.1)', padding:'14px',
+                marginBottom:'24px',
+              }}>
+                {/* Result headline */}
+                <div style={{ fontSize:'0.68rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', color:'rgba(210,240,255,0.4)', marginBottom:'10px' }}>
+                  H2H Result · {displayMode}
+                </div>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <div style={{ textAlign:'left' }}>
+                    <div style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.5)', textTransform:'uppercase', marginBottom:'3px' }}>{activeChallenge.sender}</div>
+                    <div style={{ fontSize:'1.2rem', fontWeight:900, color: activeChallenge.senderScore?.won ? '#fbbf24' : '#ef4444' }}>
+                      {activeChallenge.senderScore?.won ? `${activeChallenge.senderScore.tries} ${activeChallenge.senderScore.tries === 1 ? 'try' : 'tries'}` : 'gave up'}
+                    </div>
+                  </div>
+                  <div style={{ fontSize:'0.75rem', fontWeight:900, color:'rgba(34,197,94,0.7)', padding:'0 8px' }}>VS</div>
+                  <div style={{ textAlign:'right' }}>
+                    <div style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.5)', textTransform:'uppercase', marginBottom:'3px' }}>You</div>
+                    <div style={{ fontSize:'1.2rem', fontWeight:900, color:'#22c55e' }}>
+                      {game.guesses.length} {game.guesses.length === 1 ? 'try' : 'tries'}
+                    </div>
                   </div>
                 </div>
-                <div style={{ fontSize:'0.8rem', fontWeight:800, color:'rgba(34,197,94,0.8)', fontStyle:'italic' }}>VS</div>
-                <div style={{ textAlign:'right' }}>
-                  <div style={{ fontSize:'0.75rem', color:'rgba(255,255,255,0.5)', textTransform:'uppercase' }}>You</div>
-                  <div style={{ fontSize:'1.1rem', fontWeight:800, color:'#22c55e' }}>{game.guesses.length} tries</div>
-                </div>
+                {/* Winner callout */}
+                {(() => {
+                  const myTries = game.guesses.length;
+                  const theirTries = activeChallenge.senderScore?.tries ?? 99;
+                  const theyWon = activeChallenge.senderScore?.won;
+                  if (!theyWon) return <div style={{ marginTop:'10px', fontSize:'0.75rem', color:'#86efac', fontWeight:700 }}>🏆 They gave up. You win by default.</div>;
+                  if (myTries < theirTries) return <div style={{ marginTop:'10px', fontSize:'0.75rem', color:'#86efac', fontWeight:700 }}>🏆 You win! Fewer tries.</div>;
+                  if (myTries === theirTries) return <div style={{ marginTop:'10px', fontSize:'0.75rem', color:'#fbbf24', fontWeight:700 }}>🤝 It's a draw.</div>;
+                  return <div style={{ marginTop:'10px', fontSize:'0.75rem', color:'#f87171', fontWeight:700 }}>❌ They got it in fewer tries.</div>;
+                })()}
               </div>
             )}
 
