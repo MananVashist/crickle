@@ -762,7 +762,7 @@ export default function App() {
                   <span style={{ fontSize:'1.8rem' }}>♾️</span>
                   <div style={{ textAlign:'left' }}>
                     <div style={{ fontWeight:800, fontSize:'1.1rem', color:'#fff' }}>Endless Mode</div>
-                    <div style={{ fontSize:'0.75rem', color:'rgba(210,240,255,0.5)', marginTop:2 }}>You probably need the practice. Disappointing</div>
+                    <div style={{ fontSize:'0.75rem', color:'rgba(210,240,255,0.5)', marginTop:2 }}>Play endlessly. Diverse collection of players</div>
                   </div>
                 </div>
                 <span style={{ color:'rgba(255,255,255,0.4)', fontSize:'1.2rem' }}>→</span>
@@ -990,9 +990,7 @@ export default function App() {
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
             {!IS_NATIVE && menuTab === 'play' && playFlow === 'main' && (
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', width: '100%', marginTop: '30px' }}>
-                <a href="#" target="_blank" rel="noreferrer">
-                  <img src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg" alt="Download on the App Store" style={{ height: '42px' }} />
-                </a>
+                
                 <a href="#" target="_blank" rel="noreferrer">
                   <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Get it on Google Play" style={{ height: '42px' }} />
                 </a>
