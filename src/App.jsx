@@ -459,8 +459,16 @@ export default function App() {
         await signInWithCredential(firebaseAuth, credential);
       } else {
         const provider = new GoogleAuthProvider();
-        await signInWithRedirect(firebaseAuth, provider);
-        // Page will redirect to Google and come back — onAuthStateChanged handles the result
+        // Try popup first, fall back to redirect if blocked
+        try {
+          await signInWithPopup(firebaseAuth, provider);
+        } catch (popupErr) {
+          if (popupErr?.code === 'auth/popup-blocked' || popupErr?.code === 'auth/popup-closed-by-user') {
+            await signInWithRedirect(firebaseAuth, provider);
+          } else {
+            throw popupErr;
+          }
+        }
       }
     } catch (e) {
       if (!e?.message?.toLowerCase().includes('cancel')) {
