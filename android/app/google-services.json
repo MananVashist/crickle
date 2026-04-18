@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "760750442981",
+    "project_id": "crickle-1b6a7",
+    "storage_bucket": "crickle-1b6a7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:760750442981:android:63ac16d9d0d7c1b7e8470c",
+        "android_client_info": {
+          "package_name": "com.crickleapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAyLX86B7AAwOnog9oMkJQ8FlaEDrfhHgE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
