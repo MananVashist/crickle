@@ -1121,9 +1121,8 @@ export default function App() {
               );
             }
 
-            // ── Merge server challenges with local ──
-            // Server challenges are source of truth when signed in
-            const allChallenges = [...serverChallenges.map(sc => {
+            // ── Server is sole source of truth when signed in ──
+            const allChallenges = serverChallenges.map(sc => {
               const isSender = sc.sender_uid === authUser.uid;
               return {
                 id: sc.id,
@@ -1131,22 +1130,15 @@ export default function App() {
                 mode: sc.mode,
                 targetPlayer: sc.target_player,
                 outgoing: isSender,
-                sender: isSender ? sc.sender_name : sc.sender_name,
+                sender: sc.sender_name,
                 senderScore: sc.sender_score,
                 receiverName: sc.receiver_name,
                 receiverScore: sc.receiver_score,
                 status: sc.receiver_score
                   ? 'completed'
                   : isSender ? 'outgoing' : 'pending',
-                myScore: isSender ? null : sc.receiver_score,
+                myScore: isSender ? sc.sender_score : sc.receiver_score,
               };
-            })];
-
-            // Add any local-only challenges not yet on server
-            savedChallenges.forEach(lc => {
-              if (!allChallenges.find(sc => sc.code === lc.code)) {
-                allChallenges.push(lc);
-              }
             });
 
             const groups = {};
