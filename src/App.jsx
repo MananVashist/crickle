@@ -94,42 +94,94 @@ const getDaysSinceEpoch = () => {
 const getTodayKey = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
 // ── Stats helpers ──
-const STATS_KEY = 'crickle_stats_v1';
-const defaultStats = () => ({ streak:0, bestStreak:0, dailyStreak:0, bestDailyStreak:0, gamesPlayed:0, wins:0, totalGuesses:0, totalHints:0, hintGames:0 });
-const loadStats = () => { try { return { ...defaultStats(), ...JSON.parse(localStorage.getItem(STATS_KEY)||'{}') }; } catch { return defaultStats(); } };
+const STATS_KEY = 'crickle_stats_v2';
+const defaultStats = () => ({
+  streak:0, bestStreak:0,
+  hintlessStreak:0, bestHintlessStreak:0,
+  dailyStreak:0, bestDailyStreak:0,
+  dailyHintlessStreak:0, bestDailyHintlessStreak:0,
+  gamesPlayed:0, wins:0, totalGuesses:0, totalHints:0, hintGames:0,
+  perfectGames:0, bestGuesses:null,
+});
+const loadStats = () => {
+  try {
+    // migrate from v1
+    const v1 = localStorage.getItem('crickle_stats_v1');
+    const v2 = localStorage.getItem(STATS_KEY);
+    const raw = v2 || v1 || '{}';
+    return { ...defaultStats(), ...JSON.parse(raw) };
+  } catch { return defaultStats(); }
+};
 const saveStats = (s) => { try { localStorage.setItem(STATS_KEY, JSON.stringify(s)); } catch {} };
 const updateStats = (prev, { won, guesses, hintsUsed, isDaily }) => {
   const next = { ...prev };
   next.gamesPlayed += 1;
-  if (won) { 
-    next.wins += 1; 
-    next.streak += 1; 
-    next.bestStreak = Math.max(next.bestStreak, next.streak); 
-    next.totalGuesses += guesses; 
-    
-    // Daily win streak increments on win, no matter how many days skipped
+  if (won) {
+    next.wins += 1;
+    next.streak += 1;
+    next.bestStreak = Math.max(next.bestStreak, next.streak);
+    next.totalGuesses += guesses;
+    next.bestGuesses = next.bestGuesses === null ? guesses : Math.min(next.bestGuesses, guesses);
+    if (guesses === 1) next.perfectGames = (next.perfectGames || 0) + 1;
+    if (hintsUsed === 0) {
+      next.hintlessStreak = (next.hintlessStreak || 0) + 1;
+      next.bestHintlessStreak = Math.max(next.bestHintlessStreak || 0, next.hintlessStreak);
+    } else {
+      next.hintlessStreak = 0;
+    }
     if (isDaily) {
       next.dailyStreak += 1;
       next.bestDailyStreak = Math.max(next.bestDailyStreak, next.dailyStreak);
+      if (hintsUsed === 0) {
+        next.dailyHintlessStreak = (next.dailyHintlessStreak || 0) + 1;
+        next.bestDailyHintlessStreak = Math.max(next.bestDailyHintlessStreak || 0, next.dailyHintlessStreak);
+      } else {
+        next.dailyHintlessStreak = 0;
+      }
     }
-  }
-  else { 
-    next.streak = 0; 
-    // Only reset daily streak if actively played and lost
-    if (isDaily) next.dailyStreak = 0;
+  } else {
+    next.streak = 0;
+    next.hintlessStreak = 0;
+    if (isDaily) {
+      next.dailyStreak = 0;
+      next.dailyHintlessStreak = 0;
+    }
   }
   if (hintsUsed > 0) { next.totalHints += hintsUsed; next.hintGames += 1; }
   return next;
 };
 
 // ── H2H Obfuscation ──
-const encodeH2H = (name, tries, won) => btoa(encodeURIComponent(`1:${name}:${tries}:${won?1:0}`));
+const encodeH2H = (name, tries, hints, won) => btoa(encodeURIComponent(`2:${name}:${tries}:${hints}:${won?1:0}`));
 const decodeH2H = (str) => {
   try {
-    const [v, name, tries, won] = decodeURIComponent(atob(str)).split(':');
-    if (v !== '1') return null;
-    return { name, tries: parseInt(tries, 10), won: won === '1' };
+    const parts = decodeURIComponent(atob(str)).split(':');
+    if (parts[0] === '2') {
+      const [, name, tries, hints, won] = parts;
+      return { name, tries: parseInt(tries, 10), hints: parseInt(hints, 10), won: won === '1' };
+    }
+    if (parts[0] === '1') {
+      const [, name, tries, won] = parts;
+      return { name, tries: parseInt(tries, 10), hints: 0, won: won === '1' };
+    }
+    return null;
   } catch { return null; }
+};
+
+// ── H2H winner calculation ──
+// Priority: won > gave up. Among both won: fewer hints > fewer tries. Both gave up = draw.
+const getH2HWinner = (myScore, theirScore, myName, theirName) => {
+  if (!myScore || !theirScore) return null;
+  if (myScore.won && !theirScore.won)  return myName;
+  if (!myScore.won && theirScore.won)  return theirName;
+  if (!myScore.won && !theirScore.won) return 'draw';
+  const myH = myScore.hints ?? 0;
+  const thH = theirScore.hints ?? 0;
+  if (myH < thH) return myName;
+  if (thH < myH) return theirName;
+  if (myScore.tries < theirScore.tries) return myName;
+  if (theirScore.tries < myScore.tries) return theirName;
+  return 'draw';
 };
 
 // ── Player challenge link encoding ──
@@ -510,7 +562,7 @@ export default function App() {
     })();
 
     const BASE     = 'https://crickle-game.vercel.app';
-    const h2h      = code ? encodeH2H(userName, tries, won) : null;
+    const h2h      = code ? encodeH2H(userName, tries, game.hintsUsed, won) : null;
     const shareUrl = code ? `${BASE}/?c=${code}&x=${h2h}` : BASE;
 
     const hintsStr = game.hintsUsed === 0
@@ -578,7 +630,7 @@ export default function App() {
 
       if (activeChallenge) {
         setSavedChallenges(prev => prev.map(c => 
-          c.id === activeChallenge.id ? { ...c, status: 'completed', myScore: { won: newStatus === 'won', tries: next.length } } : c
+          c.id === activeChallenge.id ? { ...c, status: 'completed', myScore: { won: newStatus === 'won', tries: next.length, hints: game.hintsUsed } } : c
         ));
       }
     }
@@ -590,7 +642,7 @@ export default function App() {
     setStats(prev => updateStats(prev, { won: false, guesses: game.guesses.length, hintsUsed: game.hintsUsed, isDaily: game.isDaily }));
     if (activeChallenge) {
       setSavedChallenges(prev => prev.map(c => 
-        c.id === activeChallenge.id ? { ...c, status: 'completed', myScore: { won: false, tries: game.guesses.length } } : c
+        c.id === activeChallenge.id ? { ...c, status: 'completed', myScore: { won: false, tries: game.guesses.length, hints: game.hintsUsed } } : c
       ));
     }
   };
@@ -783,7 +835,7 @@ export default function App() {
                   const active  = mode === f;
                   const inProg  = games[f]?.status === 'playing' && games[f]?.guesses?.length > 0 && !games[f].isDaily;
                   return (
-                    <button key={f} onClick={() => { if(!isEmpty) { setMode(f); handleModeChange(f); } }} style={{
+                    <button key={f} onClick={() => { if(!isEmpty) { setMode(f); } }} style={{
                       width:'100%', padding:'16px 20px',
                       background: active ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.05)',
                       border:`2px solid ${active ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.1)'}`,
@@ -878,6 +930,8 @@ export default function App() {
                   {[
                     { label:'Win Streak', value: stats.dailyStreak + (stats.dailyStreak > 0 ? ' 🔥' : ''), big:true },
                     { label:'Best Streak', value: stats.bestDailyStreak },
+                    { label:'Hintless Streak', value: (stats.dailyHintlessStreak || 0) + ((stats.dailyHintlessStreak || 0) > 0 ? ' 🎯' : ''), big:true },
+                    { label:'Best Hintless', value: stats.bestDailyHintlessStreak || 0 },
                   ].map(({ label, value, big }) => (
                     <div key={label} style={{
                       background:'rgba(0,30,12,0.85)', border:'1px solid rgba(255,255,255,0.1)',
@@ -897,8 +951,12 @@ export default function App() {
                   {[
                     { label:'Win Streak', value: stats.streak },
                     { label:'Best Streak', value: stats.bestStreak },
+                    { label:'Hintless Streak', value: (stats.hintlessStreak || 0) + ((stats.hintlessStreak || 0) > 0 ? ' 🎯' : '') },
+                    { label:'Best Hintless', value: stats.bestHintlessStreak || 0 },
                     { label:'Win Rate', value: `${winRate}%` },
                     { label:'Avg Guesses', value: avgGuesses },
+                    { label:'Best Guess', value: stats.bestGuesses ?? '—', sub: stats.bestGuesses === 1 ? '🏆 First ball!' : null },
+                    { label:'Perfect Games', value: stats.perfectGames || 0, sub: (stats.perfectGames || 0) > 0 ? '1-guess wins' : null },
                     { label:'Hint Rate', value: `${hintRate}%`, sub: hintRate > 50 ? 'You lean on hints 🤦' : hintRate > 0 ? 'Occasionally guilty' : 'Pure. Unassisted. 👏' },
                     { label:'Games Played', value: stats.gamesPlayed },
                   ].map(({ label, value, sub, big }) => (
@@ -1169,7 +1227,6 @@ export default function App() {
                 border:'1px solid rgba(255,255,255,0.1)', padding:'14px',
                 marginBottom:'24px',
               }}>
-                {/* Result headline */}
                 <div style={{ fontSize:'0.68rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', color:'rgba(210,240,255,0.4)', marginBottom:'10px' }}>
                   H2H Result · {displayMode}
                 </div>
@@ -1179,6 +1236,9 @@ export default function App() {
                     <div style={{ fontSize:'1.2rem', fontWeight:900, color: activeChallenge.senderScore?.won ? '#fbbf24' : '#ef4444' }}>
                       {activeChallenge.senderScore?.won ? `${activeChallenge.senderScore.tries} ${activeChallenge.senderScore.tries === 1 ? 'try' : 'tries'}` : 'gave up'}
                     </div>
+                    {activeChallenge.senderScore?.won && (
+                      <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.35)', marginTop:'2px' }}>{activeChallenge.senderScore.hints ?? 0} hints</div>
+                    )}
                   </div>
                   <div style={{ fontSize:'0.75rem', fontWeight:900, color:'rgba(34,197,94,0.7)', padding:'0 8px' }}>VS</div>
                   <div style={{ textAlign:'right' }}>
@@ -1186,17 +1246,15 @@ export default function App() {
                     <div style={{ fontSize:'1.2rem', fontWeight:900, color:'#22c55e' }}>
                       {game.guesses.length} {game.guesses.length === 1 ? 'try' : 'tries'}
                     </div>
+                    <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.35)', marginTop:'2px' }}>{game.hintsUsed} hints</div>
                   </div>
                 </div>
-                {/* Winner callout */}
                 {(() => {
-                  const myTries = game.guesses.length;
-                  const theirTries = activeChallenge.senderScore?.tries ?? 99;
-                  const theyWon = activeChallenge.senderScore?.won;
-                  if (!theyWon) return <div style={{ marginTop:'10px', fontSize:'0.75rem', color:'#86efac', fontWeight:700 }}>🏆 They gave up. You win by default.</div>;
-                  if (myTries < theirTries) return <div style={{ marginTop:'10px', fontSize:'0.75rem', color:'#86efac', fontWeight:700 }}>🏆 You win! Fewer tries.</div>;
-                  if (myTries === theirTries) return <div style={{ marginTop:'10px', fontSize:'0.75rem', color:'#fbbf24', fontWeight:700 }}>🤝 It's a draw.</div>;
-                  return <div style={{ marginTop:'10px', fontSize:'0.75rem', color:'#f87171', fontWeight:700 }}>❌ They got it in fewer tries.</div>;
+                  const myScore = { won: true, tries: game.guesses.length, hints: game.hintsUsed };
+                  const winner = getH2HWinner(myScore, activeChallenge.senderScore, 'you', activeChallenge.sender);
+                  if (winner === 'you') return <div style={{ marginTop:'10px', fontSize:'0.75rem', color:'#86efac', fontWeight:700 }}>🏆 You win!</div>;
+                  if (winner === 'draw') return <div style={{ marginTop:'10px', fontSize:'0.75rem', color:'#fbbf24', fontWeight:700 }}>🤝 It's a draw.</div>;
+                  return <div style={{ marginTop:'10px', fontSize:'0.75rem', color:'#f87171', fontWeight:700 }}>❌ {activeChallenge.sender} wins this one.</div>;
                 })()}
               </div>
             )}
@@ -1236,30 +1294,53 @@ export default function App() {
           background:'rgba(185,28,28,0.12)',
           border:'1px solid rgba(239,68,68,0.3)',
           borderRadius:'14px', padding:'18px 20px',
-          display:'flex', alignItems:'center', justifyContent:'space-between',
           marginBottom:'20px',
         }}>
-          <div>
-            <div style={{ fontWeight:800, fontSize:'0.95rem', color:'#fff' }}>💀 Better luck next time.</div>
-            <div style={{ fontSize:'0.78rem', color:'rgba(210,240,255,0.6)', marginTop:2 }}>
-              The answer was {game.target.name}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: activeChallenge ? '12px' : 0 }}>
+            <div>
+              <div style={{ fontWeight:800, fontSize:'0.95rem', color:'#fff' }}>💀 Better luck next time.</div>
+              <div style={{ fontSize:'0.78rem', color:'rgba(210,240,255,0.6)', marginTop:2 }}>
+                The answer was {game.target.name}
+              </div>
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={handleGameShare} style={{
+                background:'rgba(34,197,94,0.2)', border:'1px solid rgba(34,197,94,0.4)',
+                borderRadius:'8px', padding:'8px 14px',
+                color:'#22c55e', fontWeight:800, fontSize:'0.8rem', cursor:'pointer',
+              }}>📤 Share</button>
+              {activeTab === 'endless' && (
+                <button onClick={() => resetGame(mode)} style={{
+                  background:'#22c55e', color:'#fff', border:'none',
+                  borderRadius:'8px', padding:'8px 14px',
+                  fontWeight:800, cursor:'pointer', fontSize:'0.8rem',
+                  boxShadow:'0 0 12px rgba(34,197,94,0.3)',
+                }}>New Game</button>
+              )}
             </div>
           </div>
-          <div style={{ display:'flex', gap:8 }}>
-            <button onClick={handleGameShare} style={{
-              background:'rgba(34,197,94,0.2)', border:'1px solid rgba(34,197,94,0.4)',
-              borderRadius:'8px', padding:'8px 14px',
-              color:'#22c55e', fontWeight:800, fontSize:'0.8rem', cursor:'pointer',
-            }}>📤 Share</button>
-            {activeTab === 'endless' && (
-              <button onClick={() => resetGame(mode)} style={{
-                background:'#22c55e', color:'#fff', border:'none',
-                borderRadius:'8px', padding:'8px 14px',
-                fontWeight:800, cursor:'pointer', fontSize:'0.8rem',
-                boxShadow:'0 0 12px rgba(34,197,94,0.3)',
-              }}>New Game</button>
-            )}
-          </div>
+          {activeChallenge && (() => {
+            const myScore = { won: false, tries: game.guesses.length, hints: game.hintsUsed };
+            const winner = getH2HWinner(myScore, activeChallenge.senderScore, 'you', activeChallenge.sender);
+            const theirResult = activeChallenge.senderScore?.won
+              ? `${activeChallenge.senderScore.tries} tries · ${activeChallenge.senderScore.hints ?? 0} hints`
+              : 'gave up';
+            return (
+              <div style={{
+                borderTop:'1px solid rgba(255,255,255,0.08)', paddingTop:'10px',
+                display:'flex', justifyContent:'space-between', alignItems:'center',
+              }}>
+                <div style={{ fontSize:'0.72rem', color:'rgba(210,240,255,0.5)' }}>
+                  {activeChallenge.sender}: <span style={{ color:'#fff', fontWeight:700 }}>{theirResult}</span>
+                </div>
+                <div style={{ fontSize:'0.72rem', fontWeight:800,
+                  color: winner === 'draw' ? '#fbbf24' : winner === activeChallenge.sender ? '#f87171' : '#86efac',
+                }}>
+                  {winner === 'draw' ? '🤝 Draw' : winner === activeChallenge.sender ? `${activeChallenge.sender} wins` : '🏆 You win'}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
