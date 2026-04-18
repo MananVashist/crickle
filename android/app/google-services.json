@@ -12,7 +12,28 @@
           "package_name": "com.crickleapp"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "760750442981-o6h8vd914p88v2erktsd1gj8f0arl0aj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.crickleapp",
+            "certificate_hash": "d4c7a1cd20ab63c09f5ca42766832c798bf935ec"
+          }
+        },
+        {
+          "client_id": "760750442981-rkkbp9i3uvq8mimu73kv5of72a6htsra.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.crickleapp",
+            "certificate_hash": "d03bb99b80622434f909f8c8e64c16faa363fec7"
+          }
+        },
+        {
+          "client_id": "760750442981-7v19p02p3d5o44at1dlt3oqh3dqpisg0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAyLX86B7AAwOnog9oMkJQ8FlaEDrfhHgE"
@@ -20,7 +41,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "760750442981-7v19p02p3d5o44at1dlt3oqh3dqpisg0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
