@@ -234,7 +234,7 @@ const normalizePlayers = (rawPlayers, mode) => {
 
       return {
         name:      isFlat ? p.player_name : p.name,
-        nation:    p.nation,
+        nation:    p.nation ? p.nation.split('/')[0] : 'UNK',
         batting:   isFlat ? (p.batsman_type  ?? '-') : (p.battingStyle ?? '-'),
         bowling:   isFlat ? (p.bowling_type  ?? '-') : normBowl(p.bowlingStyle ?? 'None'),
         debutYear: isFlat ? (parseInt(p.debut_year, 10) || null) : (fmt?.debutYear ?? null),
@@ -250,7 +250,10 @@ const normalizePlayers = (rawPlayers, mode) => {
       };
     })
     .filter((p) => {
-      if (!ALLOWED_NATIONS.has(p.nation)) return false;
+      const nat = p.nation || '';
+      const isAllowed = nat === 'UNK' || nat.split('/').some(n => ALLOWED_NATIONS.has(n));
+      if (!isAllowed) return false;
+      
       const t = String(p.tier);
       if (t === '1') return true; 
       if (mode === 'Test' && p.debutYear && p.debutYear <= 1980) return false;
@@ -267,21 +270,25 @@ const POOL = {
 
 const getDailyPlayer = (format) => {
   const pool = POOL[format];
-  const t3 = pool.filter(p => String(p.tier) === '3');
-  const targetPool = t3.length > 0 ? t3 : pool;
-  return targetPool[getDaysSinceEpoch() % targetPool.length];
+  return pool[getDaysSinceEpoch() % pool.length];
 };
 
-const freshGameState = (format, isDaily = false) => {
+const freshGameState = (format, isDaily = false, isEasy = false) => {
   const pool = POOL[format];
+  let targetPool = pool;
+  if (isEasy) {
+    targetPool = pool.filter(p => String(p.tier) === '1' || String(p.tier) === '2');
+    if (!targetPool.length) targetPool = pool;
+  }
   if (!pool.length) return null;
   return {
-    target:       isDaily ? getDailyPlayer(format) : pool[Math.floor(Math.random() * pool.length)],
+    target:       isDaily ? getDailyPlayer(format) : targetPool[Math.floor(Math.random() * targetPool.length)],
     guesses:      [],
     status:       'playing',
     hintsUsed:    0,
     revealBanner: null,
-    isDaily:      isDaily
+    isDaily:      isDaily,
+    isEasy:       isEasy
   };
 };
 
@@ -371,6 +378,9 @@ export default function App() {
       Test: freshGameState('Test', false),
       ODI:  freshGameState('ODI', false),
       T20:  freshGameState('T20', false),
+      EasyTest: freshGameState('Test', false, true),
+      EasyODI:  freshGameState('ODI', false, true),
+      EasyT20:  freshGameState('T20', false, true),
       Daily: savedDaily || freshGameState(dMode, true)
     };
   });
@@ -399,7 +409,7 @@ export default function App() {
 
   const dMode = ['Test', 'ODI', 'T20'][getDaysSinceEpoch() % 3];
   const displayMode = activeTab === 'daily' ? dMode : mode;
-  const game = activeTab === 'daily' ? games.Daily : games[mode];
+  const game = activeTab === 'daily' ? games.Daily : activeTab === 'easy' ? games['Easy' + mode] : games[mode];
 
   useEffect(() => {
     if (!IS_NATIVE) return;
@@ -496,7 +506,7 @@ export default function App() {
 
   const patchGame = useCallback((patch) => {
     setGames((prev) => {
-      const targetKey = activeTab === 'daily' ? 'Daily' : mode;
+      const targetKey = activeTab === 'daily' ? 'Daily' : activeTab === 'easy' ? 'Easy' + mode : mode;
       return {
         ...prev,
         [targetKey]: { ...prev[targetKey], ...patch },
@@ -507,9 +517,9 @@ export default function App() {
   const resetGame = useCallback(() => {
     setActiveChallenge(null);
     setGames((prev) => {
-      const targetKey = activeTab === 'daily' ? 'Daily' : mode;
+      const targetKey = activeTab === 'daily' ? 'Daily' : activeTab === 'easy' ? 'Easy' + mode : mode;
       const targetFormat = activeTab === 'daily' ? dMode : mode;
-      return { ...prev, [targetKey]: freshGameState(targetFormat, activeTab === 'daily') };
+      return { ...prev, [targetKey]: freshGameState(targetFormat, activeTab === 'daily', activeTab === 'easy') };
     });
     setSearch('');
   }, [activeTab, mode, dMode]);
@@ -538,6 +548,8 @@ export default function App() {
         const params = new URLSearchParams(search);
         const code = params.get('c');
         const xParam = params.get('x');
+        const mParam = params.get('m');
+        const sourceMode = mParam === 'd' ? 'Daily' : mParam === 'e' ? 'Endless' : '';
         if (!code) return;
 
         const decoded = decodeChallenge(code);
@@ -582,6 +594,7 @@ export default function App() {
             id: Date.now(), sender: incomingName, senderScore: incomingScore,
             mode: cMode, code, status: 'pending', targetPlayer: player.name,
             outgoing: false,
+            sourceMode,
           };
           return [newChall, ...prev];
         });
@@ -704,7 +717,8 @@ export default function App() {
 
     const BASE     = 'https://crickle-game.vercel.app';
     const h2h      = code ? encodeH2H(userName, tries, game.hintsUsed, won) : null;
-    const shareUrl = code ? `${BASE}/?c=${code}&x=${h2h}` : BASE;
+    const sourceModeStr = game.isDaily ? 'd' : 'e';
+    const shareUrl = code ? `${BASE}/?c=${code}&x=${h2h}&m=${sourceModeStr}` : BASE;
 
     const hintsStr = game.hintsUsed === 0
       ? '0 hints'
@@ -719,6 +733,10 @@ export default function App() {
       text = won
         ? `I beat ${activeChallenge.sender}'s Crickle challenge 🏏\nThey ${theirResult}. I got it in ${triesStr} with ${hintsStr}.\nThink you can beat both of us? Bet you can't.`
         : `I tried ${activeChallenge.sender}'s Crickle challenge 🏏\nThey ${theirResult}. I ${triesStr}.\nBet you can't get it either.`;
+    } else if (game.isDaily) {
+      text = won
+        ? `Try today's daily mode, I guessed it in ${tries} tries with ${game.hintsUsed} hints.`
+        : `Try today's daily mode, I gave up on this one.`;
     } else {
       text = won
         ? `I'm playing Crickle 🏏 — the cricket Wordle.\nI guessed this player in ${triesStr} with ${hintsStr}. Can you do better? Bet you can't.`
@@ -736,6 +754,7 @@ export default function App() {
             mode: displayMode, code, status: 'outgoing',
             targetPlayer: game.target.name, outgoing: true,
             receiverName: null, receiverScore: null,
+            sourceMode: game.isDaily ? 'Daily' : 'Endless',
           };
           setSavedChallenges(prev => {
             if (prev.find(c => c.code === code && c.outgoing === true)) return prev;
@@ -746,6 +765,7 @@ export default function App() {
               code, mode: displayMode, target_player: game.target.name,
               sender_uid: authUser.uid, sender_name: userName,
               sender_score: { won, tries, hints: game.hintsUsed },
+              source_mode: game.isDaily ? 'Daily' : 'Endless',
             });
           }
         }
@@ -766,6 +786,7 @@ export default function App() {
             mode: displayMode, code, status: 'outgoing',
             targetPlayer: game.target.name, outgoing: true,
             receiverName: null, receiverScore: null,
+            sourceMode: game.isDaily ? 'Daily' : 'Endless',
           };
           setSavedChallenges(prev => {
             if (prev.find(c => c.code === code && c.outgoing === true)) return prev;
@@ -776,6 +797,7 @@ export default function App() {
               code, mode: displayMode, target_player: game.target.name,
               sender_uid: authUser.uid, sender_name: userName,
               sender_score: { won, tries, hints: game.hintsUsed },
+              source_mode: game.isDaily ? 'Daily' : 'Endless',
             });
           }
         }
@@ -794,7 +816,7 @@ export default function App() {
     if (decoded) {
       setGames(prev => ({
         ...prev,
-        [chall.mode]: { target: decoded.player, guesses: [], status: 'playing', hintsUsed: 0, revealBanner: null, isDaily: false }
+        [chall.mode]: { target: decoded.player, guesses: [], status: 'playing', hintsUsed: 0, revealBanner: null, isDaily: false, isEasy: false }
       }));
       setActiveChallenge(chall);
       setScreen('game');
@@ -811,12 +833,14 @@ export default function App() {
     patchGame({ guesses: next, status: newStatus });
     setSearch('');
     if (newStatus !== 'playing') {
-      setStats(prev => updateStats(prev, {
-        won: newStatus === 'won',
-        guesses: next.length,
-        hintsUsed: game.hintsUsed,
-        isDaily: game.isDaily
-      }));
+      if (!game.isEasy) {
+        setStats(prev => updateStats(prev, {
+          won: newStatus === 'won',
+          guesses: next.length,
+          hintsUsed: game.hintsUsed,
+          isDaily: game.isDaily
+        }));
+      }
 
       if (activeChallenge) {
         const myScore = { won: newStatus === 'won', tries: next.length, hints: game.hintsUsed };
@@ -838,7 +862,9 @@ export default function App() {
   const handleGiveUp = () => {
     if (!game || game.status !== 'playing') return;
     patchGame({ status: 'lost' });
-    setStats(prev => updateStats(prev, { won: false, guesses: game.guesses.length, hintsUsed: game.hintsUsed, isDaily: game.isDaily }));
+    if (!game.isEasy) {
+      setStats(prev => updateStats(prev, { won: false, guesses: game.guesses.length, hintsUsed: game.hintsUsed, isDaily: game.isDaily }));
+    }
     if (activeChallenge) {
       const myScore = { won: false, tries: game.guesses.length, hints: game.hintsUsed };
       setSavedChallenges(prev => prev.map(c =>
@@ -922,7 +948,7 @@ export default function App() {
           fontSize:'0.75rem', fontWeight:800,
           color: fmtColors[displayMode] ?? '#fff',
         }}>
-          {game.isDaily ? `DAILY ${displayMode}` : displayMode}
+          {game.isDaily ? `DAILY ${displayMode}` : activeTab === 'easy' ? `EASY ${displayMode}` : displayMode}
         </div>
       </div>
     );
@@ -1006,7 +1032,7 @@ export default function App() {
                   <span style={{ fontSize:'1.8rem' }}>📅</span>
                   <div style={{ textAlign:'left' }}>
                     <div style={{ fontWeight:900, fontSize:'1.1rem', color:'#22c55e' }}>Daily Puzzle</div>
-                    <div style={{ fontSize:'0.75rem', color:'rgba(210,240,255,0.6)', marginTop:2 }}>Hard mode. Not for noobs</div>
+                    <div style={{ fontSize:'0.75rem', color:'rgba(210,240,255,0.6)', marginTop:2 }}>Solve the daily puzzle</div>
                   </div>
                 </div>
                 <span style={{ color:'#22c55e', fontSize:'1.2rem' }}>→</span>
@@ -1027,21 +1053,38 @@ export default function App() {
                 </div>
                 <span style={{ color:'rgba(255,255,255,0.4)', fontSize:'1.2rem' }}>→</span>
               </button>
+
+              <button onClick={() => setPlayFlow('easy')} style={{
+                width:'100%', padding:'20px', background:'rgba(255,255,255,0.05)',
+                border:'2px solid rgba(255,255,255,0.1)', borderRadius:'14px',
+                cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between',
+                transition:'all 0.15s',
+              }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'14px' }}>
+                  <span style={{ fontSize:'1.8rem' }}>🐣</span>
+                  <div style={{ textAlign:'left' }}>
+                    <div style={{ fontWeight:800, fontSize:'1.1rem', color:'#38ef7d' }}>Easy Mode</div>
+                    <div style={{ fontSize:'0.75rem', color:'rgba(210,240,255,0.5)', marginTop:2 }}>Popular players only. No stats tracked.</div>
+                  </div>
+                </div>
+                <span style={{ color:'rgba(255,255,255,0.4)', fontSize:'1.2rem' }}>→</span>
+              </button>
             </div>
           )}
 
-          {menuTab === 'play' && playFlow === 'endless' && (
+          {menuTab === 'play' && (playFlow === 'endless' || playFlow === 'easy') && (
             <div style={{ width:'100%' }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'12px' }}>
                 <button onClick={() => setPlayFlow('main')} style={{ background:'transparent', border:'none', color:'rgba(210,240,255,0.6)', fontWeight:800, cursor:'pointer', padding:0, fontSize:'0.85rem' }}>← Back</button>
-                <p style={{ color:'rgba(210,240,255,0.5)', fontSize:'0.75rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', margin:0 }}>Select Format</p>
+                <p style={{ color:'rgba(210,240,255,0.5)', fontSize:'0.75rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', margin:0 }}>Select Format {playFlow === 'easy' ? '(Easy)' : ''}</p>
                 <div style={{ width:'40px' }} /> {/* Spacer */}
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:'10px', marginBottom:'28px' }}>
                 {['Test','ODI','T20'].map(f => {
                   const isEmpty = POOL[f].length === 0;
                   const active  = mode === f;
-                  const inProg  = games[f]?.status === 'playing' && games[f]?.guesses?.length > 0 && !games[f].isDaily;
+                  const targetGame = playFlow === 'easy' ? games['Easy' + f] : games[f];
+                  const inProg  = targetGame?.status === 'playing' && targetGame?.guesses?.length > 0 && !targetGame.isDaily;
                   return (
                     <button key={f} onClick={() => { if(!isEmpty) { setMode(f); } }} style={{
                       width:'100%', padding:'16px 20px',
@@ -1068,7 +1111,7 @@ export default function App() {
                 })}
               </div>
               <button onClick={() => {
-                setActiveTab('endless');
+                setActiveTab(playFlow === 'easy' ? 'easy' : 'endless');
                 setScreen('game');
               }} style={{
                 width:'100%', padding:'16px',
@@ -1078,17 +1121,23 @@ export default function App() {
                 fontFamily:"'Outfit',system-ui,sans-serif",
                 boxShadow:'0 4px 24px rgba(34,197,94,0.35)',
               }}>
-                {games[mode]?.guesses?.length > 0 && !games[mode].isDaily ? `Continue ${mode} Game` : `Start ${mode} Game`}
+                {(() => {
+                  const targetGame = playFlow === 'easy' ? games['Easy' + mode] : games[mode];
+                  return targetGame?.guesses?.length > 0 && !targetGame.isDaily ? `Continue ${mode} Game` : `Start ${mode} Game`;
+                })()}
               </button>
-              {games[mode]?.guesses?.length > 0 && !games[mode].isDaily && (
-                <button onClick={() => { setActiveTab('endless'); resetGame(mode); setScreen('game'); }} style={{
-                  width:'100%', padding:'12px', marginTop:'8px',
-                  background:'transparent', border:'1px solid rgba(255,255,255,0.15)',
-                  borderRadius:'12px', color:'rgba(210,240,255,0.6)',
-                  fontWeight:700, fontSize:'0.85rem', cursor:'pointer',
-                  fontFamily:"'Outfit',system-ui,sans-serif",
-                }}>New Game</button>
-              )}
+              {(() => {
+                const targetGame = playFlow === 'easy' ? games['Easy' + mode] : games[mode];
+                return targetGame?.guesses?.length > 0 && !targetGame.isDaily && (
+                  <button onClick={() => { setActiveTab(playFlow === 'easy' ? 'easy' : 'endless'); resetGame(); setScreen('game'); }} style={{
+                    width:'100%', padding:'12px', marginTop:'8px',
+                    background:'transparent', border:'1px solid rgba(255,255,255,0.15)',
+                    borderRadius:'12px', color:'rgba(210,240,255,0.6)',
+                    fontWeight:700, fontSize:'0.85rem', cursor:'pointer',
+                    fontFamily:"'Outfit',system-ui,sans-serif",
+                  }}>New Game</button>
+                );
+              })()}
             </div>
           )}
 
@@ -1128,6 +1177,7 @@ export default function App() {
                 id: sc.id,
                 code: sc.code,
                 mode: sc.mode,
+                sourceMode: sc.source_mode || '',
                 targetPlayer: sc.target_player,
                 outgoing: isSender,
                 sender: sc.sender_name,
@@ -1246,7 +1296,7 @@ export default function App() {
                           }}>
                             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                               <div>
-                                <div style={{ fontSize:'0.82rem', fontWeight:800, color:'#fff' }}>{c.mode} · {c.targetPlayer || '?'}</div>
+                                <div style={{ fontSize:'0.82rem', fontWeight:800, color:'#fff' }}>{c.mode} {c.sourceMode ? `(${c.sourceMode})` : ''} · {c.targetPlayer || '?'}</div>
                                 {(c.status === 'completed' || c.status === 'returned') && (
                                   <div style={{ fontSize:'0.7rem', color: iWon ? '#22c55e' : theyWon ? '#f87171' : '#fbbf24', marginTop:'3px', fontWeight:700 }}>
                                     {iWon ? '🏆 You won' : theyWon ? `${oppName} won` : '🤝 Draw'}
@@ -1558,7 +1608,7 @@ export default function App() {
                   display:'inline-block', background:'rgba(34,197,94,0.15)', border:'1px solid rgba(34,197,94,0.35)',
                   borderRadius:'8px', padding:'4px 14px', fontSize:'0.72rem', fontWeight:700, color:'#86efac', letterSpacing:'0.08em',
                 }}>
-                  {webChallengePrompt.mode} · CRICKLE H2H
+                  {webChallengePrompt.mode} {webChallengePrompt.sourceMode ? `(${webChallengePrompt.sourceMode})` : ''} · CRICKLE H2H
                 </div>
               </div>
 
@@ -1675,7 +1725,7 @@ export default function App() {
                 marginBottom:'24px',
               }}>
                 <div style={{ fontSize:'0.68rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', color:'rgba(210,240,255,0.4)', marginBottom:'10px' }}>
-                  H2H Result · {displayMode}
+                  H2H Result · {displayMode} {activeChallenge?.sourceMode ? `(${activeChallenge.sourceMode})` : ''}
                 </div>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                   <div style={{ textAlign:'left' }}>
@@ -1704,16 +1754,18 @@ export default function App() {
             )}
 
             <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
-              <button onClick={handleGameShare} style={{
-                width:'100%', padding:'14px',
-                background:'linear-gradient(135deg,#22c55e,#16a34a)',
-                border:'none', borderRadius:'12px', color:'#fff',
-                fontWeight:900, fontSize:'0.95rem', cursor:'pointer',
-                boxShadow:'0 4px 20px rgba(34,197,94,0.4)',
-                fontFamily:"'Outfit',system-ui,sans-serif",
-              }}>📤 Share</button>
-              {activeTab === 'endless' && (
-                <button onClick={() => { resetGame(mode); }} style={{
+              {!game.isEasy && (
+                <button onClick={handleGameShare} style={{
+                  width:'100%', padding:'14px',
+                  background:'linear-gradient(135deg,#22c55e,#16a34a)',
+                  border:'none', borderRadius:'12px', color:'#fff',
+                  fontWeight:900, fontSize:'0.95rem', cursor:'pointer',
+                  boxShadow:'0 4px 20px rgba(34,197,94,0.4)',
+                  fontFamily:"'Outfit',system-ui,sans-serif",
+                }}>📤 Share</button>
+              )}
+              {(activeTab === 'endless' || activeTab === 'easy') && (
+                <button onClick={() => { resetGame(); }} style={{
                   width:'100%', padding:'12px',
                   background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.15)',
                   borderRadius:'12px', color:'rgba(210,240,255,0.8)',
@@ -1748,13 +1800,15 @@ export default function App() {
               </div>
             </div>
             <div style={{ display:'flex', gap:8 }}>
-              <button onClick={handleGameShare} style={{
-                background:'rgba(34,197,94,0.2)', border:'1px solid rgba(34,197,94,0.4)',
-                borderRadius:'8px', padding:'8px 14px',
-                color:'#22c55e', fontWeight:800, fontSize:'0.8rem', cursor:'pointer',
-              }}>📤 Share</button>
-              {activeTab === 'endless' && (
-                <button onClick={() => resetGame(mode)} style={{
+              {!game.isEasy && (
+                <button onClick={handleGameShare} style={{
+                  background:'rgba(34,197,94,0.2)', border:'1px solid rgba(34,197,94,0.4)',
+                  borderRadius:'8px', padding:'8px 14px',
+                  color:'#22c55e', fontWeight:800, fontSize:'0.8rem', cursor:'pointer',
+                }}>📤 Share</button>
+              )}
+              {(activeTab === 'endless' || activeTab === 'easy') && (
+                <button onClick={() => resetGame()} style={{
                   background:'#22c55e', color:'#fff', border:'none',
                   borderRadius:'8px', padding:'8px 14px',
                   fontWeight:800, cursor:'pointer', fontSize:'0.8rem',
@@ -1802,13 +1856,15 @@ export default function App() {
             </div>
           </div>
           <div style={{ display:'flex', gap:8 }}>
-            <button onClick={handleGameShare} style={{
-              background:'rgba(34,197,94,0.2)', border:'1px solid rgba(34,197,94,0.4)',
-              borderRadius:'8px', padding:'8px 14px',
-              color:'#22c55e', fontWeight:800, fontSize:'0.8rem', cursor:'pointer',
-            }}>📤 Share</button>
-            {activeTab === 'endless' && (
-              <button onClick={() => resetGame(mode)} style={{
+            {!game.isEasy && (
+              <button onClick={handleGameShare} style={{
+                background:'rgba(34,197,94,0.2)', border:'1px solid rgba(34,197,94,0.4)',
+                borderRadius:'8px', padding:'8px 14px',
+                color:'#22c55e', fontWeight:800, fontSize:'0.8rem', cursor:'pointer',
+              }}>📤 Share</button>
+            )}
+            {(activeTab === 'endless' || activeTab === 'easy') && (
+              <button onClick={() => resetGame()} style={{
                 background:'#22c55e', color:'#fff', border:'none',
                 borderRadius:'8px', padding:'8px 14px',
                 fontWeight:800, cursor:'pointer', fontSize:'0.8rem',
