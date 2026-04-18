@@ -3,7 +3,7 @@ import { AdMob, InterstitialAdPluginEvents } from '@capacitor-community/admob';
 import { App as CapApp } from '@capacitor/app';
 import { Share } from '@capacitor/share';
 import { initializeApp as initFirebase } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithCredential, onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import testPlayersRaw from './testplayers.json';
 import odiPlayersRaw from './odiplayers.json';
 import t20PlayersRaw from './t20players.json';
@@ -427,7 +427,6 @@ export default function App() {
       setAuthUser(user);
       setAuthLoading(false);
       if (user) {
-        // Sync username from Firebase display name if not already set
         if (!localStorage.getItem('crickle_username') && user.displayName) {
           setUserName(user.displayName);
           localStorage.setItem('crickle_username', user.displayName);
@@ -437,6 +436,10 @@ export default function App() {
         setServerChallenges([]);
       }
     });
+    // Handle redirect result on page load (web sign-in)
+    if (!IS_NATIVE) {
+      getRedirectResult(firebaseAuth).catch(() => {});
+    }
     return () => unsub();
   }, [fetchServerChallenges]);
 
@@ -456,7 +459,8 @@ export default function App() {
         await signInWithCredential(firebaseAuth, credential);
       } else {
         const provider = new GoogleAuthProvider();
-        await signInWithPopup(firebaseAuth, provider);
+        await signInWithRedirect(firebaseAuth, provider);
+        // Page will redirect to Google and come back — onAuthStateChanged handles the result
       }
     } catch (e) {
       if (!e?.message?.toLowerCase().includes('cancel')) {
