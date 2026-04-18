@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AdMob, InterstitialAdPluginEvents } from '@capacitor-community/admob';
 import { App as CapApp } from '@capacitor/app';
+import { Share } from '@capacitor/share';
 import testPlayersRaw from './testplayers.json';
 import odiPlayersRaw from './odiplayers.json';
 import t20PlayersRaw from './t20players.json';
@@ -105,11 +106,9 @@ const defaultStats = () => ({
 });
 const loadStats = () => {
   try {
-    // migrate from v1
+    const v2 = localStorage.getItem('crickle_stats_v2');
     const v1 = localStorage.getItem('crickle_stats_v1');
-    const v2 = localStorage.getItem(STATS_KEY);
-    const raw = v2 || v1 || '{}';
-    return { ...defaultStats(), ...JSON.parse(raw) };
+    return { ...defaultStats(), ...JSON.parse(v2 || v1 || '{}') };
   } catch { return defaultStats(); }
 };
 const saveStats = (s) => { try { localStorage.setItem(STATS_KEY, JSON.stringify(s)); } catch {} };
@@ -142,10 +141,7 @@ const updateStats = (prev, { won, guesses, hintsUsed, isDaily }) => {
   } else {
     next.streak = 0;
     next.hintlessStreak = 0;
-    if (isDaily) {
-      next.dailyStreak = 0;
-      next.dailyHintlessStreak = 0;
-    }
+    if (isDaily) { next.dailyStreak = 0; next.dailyHintlessStreak = 0; }
   }
   if (hintsUsed > 0) { next.totalHints += hintsUsed; next.hintGames += 1; }
   return next;
@@ -168,8 +164,7 @@ const decodeH2H = (str) => {
   } catch { return null; }
 };
 
-// ── H2H winner calculation ──
-// Priority: won > gave up. Among both won: fewer hints > fewer tries. Both gave up = draw.
+// won > gave up. Among both won: fewer hints > fewer tries. Both gave up = draw.
 const getH2HWinner = (myScore, theirScore, myName, theirName) => {
   if (!myScore || !theirScore) return null;
   if (myScore.won && !theirScore.won)  return myName;
@@ -373,6 +368,8 @@ export default function App() {
   const [showNamePrompt, setShowNamePrompt] = useState(false);
   const [activeChallenge, setActiveChallenge] = useState(null);
   const [webChallengePrompt, setWebChallengePrompt] = useState(null);
+  const [rivalryView, setRivalryView] = useState(null);
+  const [rivalryTab, setRivalryTab] = useState('open');
 
   const dMode = ['Test', 'ODI', 'T20'][getDaysSinceEpoch() % 3];
   const displayMode = activeTab === 'daily' ? dMode : mode;
@@ -586,6 +583,17 @@ export default function App() {
         : `I'm playing Crickle 🏏 — the cricket Wordle.\nI gave up on this one. Think you can get it?`;
     }
 
+    if (IS_NATIVE) {
+      try {
+        await Share.share({ title: 'Crickle 🏏', text: text + '\n' + shareUrl, dialogTitle: 'Challenge a friend' });
+      } catch (e) {
+        // user cancelled — do nothing. any other error: copy as fallback
+        if (!e?.message?.toLowerCase().includes('cancel')) {
+          try { await navigator.clipboard.writeText(text + '\n' + shareUrl); } catch {}
+        }
+      }
+      return;
+    }
     if (navigator.share) {
       try {
         await navigator.share({ title: 'Crickle 🏏', text: text + '\n', url: shareUrl });
@@ -594,7 +602,7 @@ export default function App() {
         if (e?.name === 'AbortError') return;
       }
     }
-    try { await navigator.clipboard.writeText(text + '\n' + shareUrl); alert('Copied!'); } catch {}
+    try { await navigator.clipboard.writeText(text + '\n' + shareUrl); alert('Link copied!'); } catch {}
   }, [game, displayMode, userName, activeChallenge]);
 
   const playSavedChallenge = (chall) => {
@@ -885,39 +893,188 @@ export default function App() {
           )}
 
           {/* ── CHALLENGES tab ── */}
-          {menuTab === 'challenges' && (
-             <div style={{ width:'100%' }}>
-               {savedChallenges.length === 0 ? (
-                 <div style={{ textAlign:'center', padding:'40px 20px', color:'rgba(255,255,255,0.5)' }}>
-                    <div style={{ fontSize:'2rem', marginBottom:'10px' }}>📭</div>
-                    <p style={{ fontSize:'0.9rem', fontWeight:600 }}>No challenges yet.</p>
-                    <p style={{ fontSize:'0.75rem' }}>Send a challenge to a friend after you finish a game!</p>
-                 </div>
-               ) : (
-                 <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
-                   {savedChallenges.map((c) => (
-                     <div key={c.id} style={{ background:'rgba(0,30,15,0.8)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:'12px', padding:'14px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                        <div>
-                          <div style={{ fontSize:'0.9rem', fontWeight:800, color:'#fff' }}>{c.sender}'s {c.mode}</div>
-                          <div style={{ fontSize:'0.7rem', color: c.status === 'pending' ? '#fbbf24' : 'rgba(255,255,255,0.5)', marginTop:'4px' }}>
-                            {c.status === 'pending' ? 'Pending Challenge' : 'Completed'}
+          {menuTab === 'challenges' && (() => {
+            const groups = {};
+            savedChallenges.forEach(c => {
+              const opp = c.sender || 'Unknown';
+              if (!groups[opp]) groups[opp] = [];
+              groups[opp].push(c);
+            });
+            const opponents = Object.keys(groups);
+
+            if (opponents.length === 0) {
+              return (
+                <div style={{ textAlign:'center', padding:'40px 20px', color:'rgba(255,255,255,0.5)' }}>
+                  <div style={{ fontSize:'2rem', marginBottom:'10px' }}>📭</div>
+                  <p style={{ fontSize:'0.9rem', fontWeight:600 }}>No challenges yet.</p>
+                  <p style={{ fontSize:'0.75rem' }}>Finish a game and send a challenge to a friend!</p>
+                </div>
+              );
+            }
+
+            if (rivalryView && groups[rivalryView]) {
+              const challs    = groups[rivalryView];
+              const open      = challs.filter(c => c.status === 'pending');
+              const completed = challs.filter(c => c.status === 'completed');
+              let myWins = 0, theirWins = 0;
+              completed.forEach(c => {
+                const w = getH2HWinner(c.myScore, c.senderScore, userName || 'Me', rivalryView);
+                if (w === (userName || 'Me')) myWins++;
+                else if (w === rivalryView) theirWins++;
+              });
+              const shown = rivalryTab === 'open' ? open : completed;
+              return (
+                <div style={{ width:'100%' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'16px' }}>
+                    <button onClick={() => setRivalryView(null)} style={{
+                      background:'transparent', border:'none', color:'rgba(210,240,255,0.6)',
+                      fontWeight:800, cursor:'pointer', fontSize:'0.85rem', padding:0,
+                    }}>← Back</button>
+                  </div>
+                  <div style={{
+                    background:'rgba(0,30,10,0.9)', border:'1px solid rgba(34,197,94,0.3)',
+                    borderRadius:'16px', padding:'16px', marginBottom:'16px', textAlign:'center',
+                  }}>
+                    <div style={{ fontSize:'0.65rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', color:'rgba(210,240,255,0.4)', marginBottom:'10px' }}>Head to Head</div>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                      <div>
+                        <div style={{ fontSize:'0.75rem', color:'rgba(255,255,255,0.5)', marginBottom:'4px' }}>{userName || 'Me'}</div>
+                        <div style={{ fontSize:'2.2rem', fontWeight:900, color: myWins > theirWins ? '#22c55e' : myWins === theirWins ? '#fff' : '#f87171', lineHeight:1 }}>{myWins}</div>
+                      </div>
+                      <div style={{ fontSize:'0.8rem', fontWeight:900, color:'rgba(255,255,255,0.3)' }}>VS</div>
+                      <div>
+                        <div style={{ fontSize:'0.75rem', color:'rgba(255,255,255,0.5)', marginBottom:'4px' }}>{rivalryView}</div>
+                        <div style={{ fontSize:'2.2rem', fontWeight:900, color: theirWins > myWins ? '#22c55e' : myWins === theirWins ? '#fff' : '#f87171', lineHeight:1 }}>{theirWins}</div>
+                      </div>
+                    </div>
+                    {completed.length > 0 && myWins === theirWins && (
+                      <div style={{ marginTop:'8px', fontSize:'0.72rem', color:'#fbbf24', fontWeight:700 }}>🤝 All square</div>
+                    )}
+                  </div>
+                  <div style={{
+                    display:'flex', gap:'4px', background:'rgba(0,25,10,0.9)',
+                    border:'1px solid rgba(255,255,255,0.1)', borderRadius:'10px', padding:'3px', marginBottom:'12px',
+                  }}>
+                    {[['open', `Open (${open.length})`], ['completed', `Completed (${completed.length})`]].map(([id, label]) => (
+                      <button key={id} onClick={() => setRivalryTab(id)} style={{
+                        flex:1, padding:'7px 4px', borderRadius:'7px', border:'none', cursor:'pointer',
+                        fontWeight:700, fontSize:'0.78rem',
+                        background: rivalryTab === id ? 'linear-gradient(135deg,#22c55e,#16a34a)' : 'transparent',
+                        color: rivalryTab === id ? '#fff' : 'rgba(210,240,255,0.5)',
+                        fontFamily:"'Outfit',system-ui,sans-serif",
+                      }}>{label}</button>
+                    ))}
+                  </div>
+                  {shown.length === 0 ? (
+                    <div style={{ textAlign:'center', padding:'30px 20px', color:'rgba(255,255,255,0.4)', fontSize:'0.85rem' }}>
+                      {rivalryTab === 'open' ? `No open challenges from ${rivalryView}` : 'No completed challenges yet'}
+                    </div>
+                  ) : (
+                    <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
+                      {shown.map(c => {
+                        const winner = c.status === 'completed' ? getH2HWinner(c.myScore, c.senderScore, userName || 'Me', rivalryView) : null;
+                        const iWon   = winner === (userName || 'Me');
+                        const theyWon= winner === rivalryView;
+                        return (
+                          <div key={c.id} style={{
+                            background:'rgba(0,30,15,0.8)',
+                            border:`1px solid ${c.status === 'pending' ? 'rgba(251,191,36,0.2)' : iWon ? 'rgba(34,197,94,0.2)' : theyWon ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.08)'}`,
+                            borderRadius:'12px', padding:'14px',
+                          }}>
+                            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                              <div>
+                                <div style={{ fontSize:'0.82rem', fontWeight:800, color:'#fff' }}>{c.mode} · {c.targetPlayer || '?'}</div>
+                                {c.status === 'completed' && (
+                                  <div style={{ fontSize:'0.7rem', color: iWon ? '#22c55e' : theyWon ? '#f87171' : '#fbbf24', marginTop:'3px', fontWeight:700 }}>
+                                    {iWon ? '🏆 You won' : theyWon ? `${rivalryView} won` : '🤝 Draw'}
+                                  </div>
+                                )}
+                                {c.status === 'pending' && (
+                                  <div style={{ fontSize:'0.7rem', color:'#fbbf24', marginTop:'3px', fontWeight:700 }}>Awaiting your response</div>
+                                )}
+                              </div>
+                              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'4px' }}>
+                                {c.status === 'completed' && c.myScore && (
+                                  <div style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.6)', textAlign:'right' }}>
+                                    <span style={{ color:'rgba(210,240,255,0.9)', fontWeight:700 }}>You: </span>
+                                    {c.myScore.won ? `${c.myScore.tries} tries · ${c.myScore.hints ?? 0} hints` : 'gave up'}
+                                  </div>
+                                )}
+                                {c.status === 'completed' && c.senderScore && (
+                                  <div style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.6)', textAlign:'right' }}>
+                                    <span style={{ color:'rgba(210,240,255,0.9)', fontWeight:700 }}>{rivalryView}: </span>
+                                    {c.senderScore.won ? `${c.senderScore.tries} tries · ${c.senderScore.hints ?? 0} hints` : 'gave up'}
+                                  </div>
+                                )}
+                                {c.status === 'pending' && (
+                                  <button onClick={() => playSavedChallenge(c)} style={{
+                                    background:'#22c55e', color:'#fff', border:'none',
+                                    borderRadius:'8px', padding:'7px 14px', fontWeight:800, cursor:'pointer', fontSize:'0.8rem',
+                                    fontFamily:"'Outfit',system-ui,sans-serif",
+                                  }}>Play</button>
+                                )}
+                              </div>
+                            </div>
                           </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <div style={{ width:'100%', display:'flex', flexDirection:'column', gap:'10px' }}>
+                {opponents.map(opp => {
+                  const challs    = groups[opp];
+                  const completed = challs.filter(c => c.status === 'completed');
+                  const pending   = challs.filter(c => c.status === 'pending');
+                  let myWins = 0, theirWins = 0;
+                  completed.forEach(c => {
+                    const w = getH2HWinner(c.myScore, c.senderScore, userName || 'Me', opp);
+                    if (w === (userName || 'Me')) myWins++;
+                    else if (w === opp) theirWins++;
+                  });
+                  return (
+                    <button key={opp} onClick={() => { setRivalryView(opp); setRivalryTab(pending.length > 0 ? 'open' : 'completed'); }} style={{
+                      width:'100%', background:'rgba(0,30,15,0.8)',
+                      border:'1px solid rgba(255,255,255,0.1)', borderRadius:'14px', padding:'16px',
+                      display:'flex', alignItems:'center', justifyContent:'space-between',
+                      cursor:'pointer', textAlign:'left', fontFamily:"'Outfit',system-ui,sans-serif",
+                    }}>
+                      <div>
+                        <div style={{ fontSize:'0.95rem', fontWeight:800, color:'#fff', marginBottom:'4px' }}>
+                          {userName || 'Me'} vs {opp}
                         </div>
-                        {c.status === 'pending' ? (
-                          <button onClick={() => playSavedChallenge(c)} style={{ background:'#22c55e', color:'#fff', border:'none', borderRadius:'8px', padding:'8px 16px', fontWeight:800, cursor:'pointer' }}>Play</button>
-                        ) : (
-                          <div style={{ textAlign:'right', fontSize:'0.75rem', fontWeight:700 }}>
-                            <span style={{ color: c.myScore.won ? '#22c55e' : '#ef4444' }}>{c.myScore.won ? `${c.myScore.tries} tries` : 'Lost'}</span>
-                            <br/>
-                            <span style={{ color:'rgba(255,255,255,0.5)' }}>vs {c.senderScore?.won ? `${c.senderScore.tries} tries` : 'Lost'}</span>
+                        <div style={{ fontSize:'0.72rem', color:'rgba(210,240,255,0.5)' }}>
+                          {completed.length} completed · {pending.length} open
+                        </div>
+                      </div>
+                      <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+                        {completed.length > 0 && (
+                          <div style={{ textAlign:'center' }}>
+                            <div style={{ fontSize:'1.4rem', fontWeight:900, color: myWins > theirWins ? '#22c55e' : myWins < theirWins ? '#f87171' : '#fbbf24', lineHeight:1 }}>
+                              {myWins}–{theirWins}
+                            </div>
+                            <div style={{ fontSize:'0.6rem', color:'rgba(255,255,255,0.3)', fontWeight:700, textTransform:'uppercase' }}>Score</div>
                           </div>
                         )}
-                     </div>
-                   ))}
-                 </div>
-               )}
-             </div>
-          )}
+                        {pending.length > 0 && (
+                          <span style={{
+                            background:'rgba(251,191,36,0.2)', border:'1px solid rgba(251,191,36,0.4)',
+                            color:'#fbbf24', borderRadius:'6px', padding:'3px 8px',
+                            fontSize:'0.65rem', fontWeight:700,
+                          }}>{pending.length} open</span>
+                        )}
+                        <span style={{ color:'rgba(255,255,255,0.3)', fontSize:'1rem' }}>→</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
           {/* ── STATS tab ── */}
           {menuTab === 'stats' && (
@@ -930,7 +1087,7 @@ export default function App() {
                   {[
                     { label:'Win Streak', value: stats.dailyStreak + (stats.dailyStreak > 0 ? ' 🔥' : ''), big:true },
                     { label:'Best Streak', value: stats.bestDailyStreak },
-                    { label:'Hintless Streak', value: (stats.dailyHintlessStreak || 0) + ((stats.dailyHintlessStreak || 0) > 0 ? ' 🎯' : ''), big:true },
+                    { label:'Hintless Streak', value: (stats.dailyHintlessStreak||0) + ((stats.dailyHintlessStreak||0) > 0 ? ' 🎯' : ''), big:true },
                     { label:'Best Hintless', value: stats.bestDailyHintlessStreak || 0 },
                   ].map(({ label, value, big }) => (
                     <div key={label} style={{
@@ -951,12 +1108,12 @@ export default function App() {
                   {[
                     { label:'Win Streak', value: stats.streak },
                     { label:'Best Streak', value: stats.bestStreak },
-                    { label:'Hintless Streak', value: (stats.hintlessStreak || 0) + ((stats.hintlessStreak || 0) > 0 ? ' 🎯' : '') },
+                    { label:'Hintless Streak', value: (stats.hintlessStreak||0) + ((stats.hintlessStreak||0) > 0 ? ' 🎯' : '') },
                     { label:'Best Hintless', value: stats.bestHintlessStreak || 0 },
                     { label:'Win Rate', value: `${winRate}%` },
                     { label:'Avg Guesses', value: avgGuesses },
                     { label:'Best Guess', value: stats.bestGuesses ?? '—', sub: stats.bestGuesses === 1 ? '🏆 First ball!' : null },
-                    { label:'Perfect Games', value: stats.perfectGames || 0, sub: (stats.perfectGames || 0) > 0 ? '1-guess wins' : null },
+                    { label:'Perfect Games', value: stats.perfectGames || 0, sub: (stats.perfectGames||0) > 0 ? '1-guess wins' : null },
                     { label:'Hint Rate', value: `${hintRate}%`, sub: hintRate > 50 ? 'You lean on hints 🤦' : hintRate > 0 ? 'Occasionally guilty' : 'Pure. Unassisted. 👏' },
                     { label:'Games Played', value: stats.gamesPlayed },
                   ].map(({ label, value, sub, big }) => (
@@ -1085,7 +1242,7 @@ export default function App() {
         const isAndroid = /android/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '');
         const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.crickleapp';
         // intent:// URL opens app if installed, falls back to Play Store if not
-        const challengeUrl = `https://crickle-game.vercel.app/?c=${webChallengePrompt.code}&x=${encodeH2H(webChallengePrompt.sender, webChallengePrompt.senderScore?.tries ?? 0, webChallengePrompt.senderScore?.won ?? false)}`;
+        const challengeUrl = `https://crickle-game.vercel.app/?c=${webChallengePrompt.code}&x=${encodeH2H(webChallengePrompt.sender, webChallengePrompt.senderScore?.tries ?? 0, webChallengePrompt.senderScore?.hints ?? 0, webChallengePrompt.senderScore?.won ?? false)}`;
         const intentUrl = `intent://open?c=${webChallengePrompt.code}#Intent;scheme=crickle;package=com.crickleapp;S.browser_fallback_url=${encodeURIComponent(PLAY_STORE_URL)};end`;
         const senderResult = webChallengePrompt.senderScore?.won
           ? `${webChallengePrompt.senderScore.tries} ${webChallengePrompt.senderScore.tries === 1 ? 'try' : 'tries'}`
@@ -1326,10 +1483,7 @@ export default function App() {
               ? `${activeChallenge.senderScore.tries} tries · ${activeChallenge.senderScore.hints ?? 0} hints`
               : 'gave up';
             return (
-              <div style={{
-                borderTop:'1px solid rgba(255,255,255,0.08)', paddingTop:'10px',
-                display:'flex', justifyContent:'space-between', alignItems:'center',
-              }}>
+              <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', paddingTop:'10px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <div style={{ fontSize:'0.72rem', color:'rgba(210,240,255,0.5)' }}>
                   {activeChallenge.sender}: <span style={{ color:'#fff', fontWeight:700 }}>{theirResult}</span>
                 </div>
