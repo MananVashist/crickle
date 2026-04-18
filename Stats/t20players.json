@@ -140,7 +140,7 @@
     "runs": "1672",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "78",
     "hints": [
       "Known as 'Mr. 360' for his ability to hit the ball to all parts of the ground, he held the record for the fastest T20I fifty by a South African (21 balls).",
@@ -197,7 +197,7 @@
     "runs": "1617",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "98",
     "hints": [
       "The captain who led India to victory in the inaugural 2007 T20 World Cup, famously entrusting the final over to Joginder Sharma.",
@@ -235,7 +235,7 @@
     "runs": "1209",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "76",
     "hints": [
       "A fearless wicketkeeper-batsman known for his one-handed sixes and audacious reverse-scoops against elite fast bowlers.",
@@ -425,7 +425,7 @@
     "runs": "2265",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "72",
     "hints": [
       "One of the few players to score a century in T20Is while batting at number four, achieved against the West Indies in 2016.",
@@ -539,7 +539,7 @@
     "runs": "1759",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "68",
     "hints": [
       "Nicknamed 'Gabbar', he formed one of India's most successful opening pairs alongside Rohit Sharma across limited-overs formats.",
@@ -596,7 +596,7 @@
     "runs": "1743",
     "wickets": "4",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "61",
     "hints": [
       "The primary batting powerhouse for Saudi Arabia, he famously scored a 45-ball century against Kuwait in 2020.",
@@ -672,7 +672,7 @@
     "runs": "1399",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "62",
     "hints": [
       "The most gifted batter in India if you only watch his Instagram highlights and ignore his career-long obsession with throwing his wicket away.",
@@ -710,7 +710,7 @@
     "runs": "1328",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "45",
     "hints": [
       "The pocket dynamo who smashed a double century in ODIs and then decided that domestic cricket was beneath him, leading to a very public fallout with the board.",
@@ -805,7 +805,7 @@
     "runs": "4037",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "155",
     "hints": [
       "The captain who led England to the 2022 T20 World Cup title, famously scoring a match-winning 80* in the semi-final against India.",
@@ -881,7 +881,7 @@
     "runs": "3531",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "122",
     "hints": [
       "The first New Zealander and the second player globally to score two T20I centuries, known for his dominance at the top of the order.",
@@ -1014,7 +1014,7 @@
     "runs": "3095",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "110",
     "hints": [
       "The baby-faced assassin of South African cricket, he is one of the most explosive wicketkeeper-openers in the history of the shortest format.",
@@ -1090,7 +1090,7 @@
     "runs": "3414",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "106",
     "hints": [
       "Set a world record in 2021 by scoring 1,326 T20I runs in a single calendar year, the most by any player in history.",
@@ -1318,7 +1318,7 @@
     "runs": "1671",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "80",
     "hints": [
       "A versatile and powerful batsman who was a key member of England's 2022 T20 World Cup-winning squad.",
@@ -1470,7 +1470,7 @@
     "runs": "2458",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "115",
     "hints": [
       "The transformative captain who led England to their first-ever ODI World Cup title in 2019 and a No. 1 ranking in T20Is.",
@@ -1527,7 +1527,7 @@
     "runs": "2074",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "75",
     "hints": [
       "The first English batsman to score a T20 International century, smashing an unbeaten 116 against Sri Lanka in 2014.",
@@ -1565,7 +1565,7 @@
     "runs": "895",
     "wickets": "77",
     "batsman_type": "Left",
-    "bowling_type": "Left",
+    "bowling_type": "Spin",
     "matches": "71",
     "hints": [
       "A Pakistani-born all-rounder who has become the linchpin of Hong Kong's bowling attack with his left-arm orthodox spin.",
@@ -1584,7 +1584,7 @@
     "runs": "1382",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "56",
     "hints": [
       "Famously led Sri Lanka to the final of the 2009 T20 World Cup and retired from the format as a world champion in 2014.",
@@ -1622,7 +1622,7 @@
     "runs": "2622",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "106",
     "hints": [
       "The dynamic wicketkeeper-batsman who scored a blistering 86 against Bangladesh in 2024, the highest score of his T20I career.",
@@ -1641,7 +1641,7 @@
     "runs": "1500",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "102",
     "hints": [
       "A mainstay of Bangladesh cricket for two decades, he famously scored 72* against Sri Lanka in 2018 to pull off a record chase.",
@@ -1660,7 +1660,7 @@
     "runs": "2335",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "95",
     "hints": [
       "A dynamic left-handed opener often compared to Sanath Jayasuriya for his aggressive style and similar bat swing.",
@@ -1679,7 +1679,7 @@
     "runs": "2648",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "91",
     "hints": [
       "The first Sri Lankan to score two T20 International centuries, establishing himself as the bedrock of their modern-day top order.",
@@ -1698,7 +1698,7 @@
     "runs": "2504",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "90",
     "hints": [
       "A stylish South African opener who famously scored a century on his ODI debut and carried that prolific form into T20 Internationals.",
@@ -1736,7 +1736,7 @@
     "runs": "1690",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "84",
     "hints": [
       "A highly talented middle-order batsman who burst onto the scene with a 50 in his maiden T20I innings against Sri Lanka in 2009.",
@@ -1850,7 +1850,7 @@
     "runs": "2275",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "106",
     "hints": [
       "A dynamic left-handed wicketkeeper-batsman who overcame a life-threatening car accident early in his career to become a global T20 superstar.",
@@ -1983,7 +1983,7 @@
     "runs": "2655",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "120",
     "hints": [
       "A stylish and elegant opening batsman who holds the record for the fastest fifty by a Bangladeshi in T20Is (18 balls).",
@@ -2040,7 +2040,7 @@
     "runs": "2280",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "87",
     "hints": [
       "A dynamic opening batsman who became the first Afghan to score a century on ODI debut, bringing that same aggression to T20Is.",
@@ -2097,7 +2097,7 @@
     "runs": "2048",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "73",
     "hints": [
       "The first Afghan player to reach 2,000 T20I runs, known for his flamboyant personality and 'helicopter' shots.",
@@ -2154,7 +2154,7 @@
     "runs": "1522",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "64",
     "hints": [
       "An explosive opening batsman who was a cornerstone of England's 'ultra-aggressive' white-ball revolution under Eoin Morgan.",
@@ -2192,7 +2192,7 @@
     "runs": "1493",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "55",
     "hints": [
       "The first Sri Lankan to score a T20 International century, achieving the feat against Zimbabwe in the 2010 World Cup.",
@@ -2249,7 +2249,7 @@
     "runs": "1202",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "92",
     "hints": [
       "Famously smashed three consecutive sixes off Shaheen Afridi in the 2021 T20 World Cup semi-final to lead Australia into the final.",
@@ -2325,7 +2325,7 @@
     "runs": "2140",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "71",
     "hints": [
       "A pioneer of aggressive T20 batting, he was the first player in history to score two T20 International centuries.",
@@ -2496,7 +2496,7 @@
     "runs": "1973",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "84",
     "hints": [
       "An elegant opening batsman who became the mainstay of the West Indies top order following a record-breaking 2019 CPL season.",
@@ -2515,7 +2515,7 @@
     "runs": "1593",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "82",
     "hints": [
       "A dynamic left-handed middle-order powerhouse who captained the West Indies to their first U-19 World Cup title in 2016.",
@@ -2534,7 +2534,7 @@
     "runs": "575",
     "wickets": "75",
     "batsman_type": "Right",
-    "bowling_type": "Left",
+    "bowling_type": "Spin",
     "matches": "71",
     "hints": [
       "Nicknamed 'The Bulldog' for his immense competitive spirit, he is one of the few players to represent two different nations (South Africa and Netherlands).",
@@ -2553,7 +2553,7 @@
     "runs": "1839",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "69",
     "hints": [
       "A South African-born batsman who became a sensation for New Zealand, scoring a half-century on his T20I debut.",
@@ -2629,7 +2629,7 @@
     "runs": "1717",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "60",
     "hints": [
       "A dynamic opening batsman who became the first Englishman to score back-to-back T20I centuries, achieved against the West Indies in 2023.",
@@ -2686,7 +2686,7 @@
     "runs": "1865",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "65",
     "hints": [
       "A technically gifted opening batsman who became the first Afghan to score a century in a 50-over World Cup, bringing that class to the T20 format.",
@@ -2705,7 +2705,7 @@
     "runs": "1303",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "63",
     "hints": [
       "A generational talent who smashed a 41-ball century in a domestic T20 game before replicating his dominance for England.",
@@ -2762,7 +2762,7 @@
     "runs": "1277",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "44",
     "hints": [
       "The 'Mighty Monk' who batted with the serenity of a saint and the efficiency of a machine, scoring runs while everyone else was losing their heads.",
@@ -2838,7 +2838,7 @@
     "runs": "2392",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "110",
     "hints": [
       "The former captain who led Ireland to a historic victory over England at the 2022 T20 World Cup, scoring a match-winning 62.",
@@ -2952,7 +2952,7 @@
     "runs": "2436",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "85",
     "hints": [
       "A powerhouse opening batsman for Scotland, famous for his frequent use of the reverse-sweep and switch-hit against fast bowlers.",
@@ -3028,7 +3028,7 @@
     "runs": "1525",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "69",
     "hints": [
       "A two-time T20 World Cup winner (2012, 2016) known for his brute power and aggressive intent at the top of the order.",
@@ -3066,7 +3066,7 @@
     "runs": "1672",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "67",
     "hints": [
       "Initially regarded as a red-ball specialist, he reinvented his game to become a destructive T20I force, smashing a century against England in late 2024.",
@@ -3085,7 +3085,7 @@
     "runs": "1663",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "62",
     "hints": [
       "One of the most explosive openers in world cricket, famous for his 'take-down' approach from the very first ball of the innings.",
@@ -3294,7 +3294,7 @@
     "runs": "1758",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "78",
     "hints": [
       "The first Bangladeshi to score a century in T20 Internationals, achieving the feat against Oman in the 2016 T20 World Cup.",
@@ -3484,7 +3484,7 @@
     "runs": "2279",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "90",
     "hints": [
       "An aggressive wicketkeeper-batsman who models his explosive style and '360-degree' shots after Brendon McCullum.",
@@ -3560,7 +3560,7 @@
     "runs": "1117",
     "wickets": "12",
     "batsman_type": "Left",
-    "bowling_type": "Right",
+    "bowling_type": "Spin",
     "matches": "70",
     "hints": [
       "A talented young all-rounder who famously scored a match-winning 52 on his T20I debut against Zimbabwe.",
@@ -3674,7 +3674,7 @@
     "runs": "1730",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "91",
     "hints": [
       "An innovative wicketkeeper-batsman who famously scored an unbeaten 71 against Australia in the 2022 T20 World Cup.",
@@ -3769,7 +3769,7 @@
     "runs": "1251",
     "wickets": "67",
     "batsman_type": "Left",
-    "bowling_type": "Left",
+    "bowling_type": "Fast",
     "matches": "71",
     "hints": [
       "The vice-captain and premier all-rounder for Namibia, known for his ability to smash massive sixes and bowl effective left-arm medium-fast spells.",
@@ -3902,7 +3902,7 @@
     "runs": "1409",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "87",
     "hints": [
       "Scotland's premier wicketkeeper-batsman who played a vital role in their historic win over Bangladesh in the 2021 T20 World Cup.",
@@ -3921,7 +3921,7 @@
     "runs": "1316",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "86",
     "hints": [
       "The Australian-born captain of the Netherlands who led them to a historic Super 12 appearance in the 2022 and 2024 T20 World Cups.",
@@ -3959,7 +3959,7 @@
     "runs": "1449",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "71",
     "hints": [
       "The experienced former captain of Zimbabwe who led the team through their historic 2022 T20 World Cup campaign.",
@@ -4035,7 +4035,7 @@
     "runs": "1216",
     "wickets": "1",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "59",
     "hints": [
       "Arguably Zimbabwe's greatest batsman of the modern era, famously scoring back-to-back centuries in the 2015 ODI World Cup.",
@@ -4111,7 +4111,7 @@
     "runs": "1305",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "46",
     "hints": [
       "A prolific top-order batsman who rose to fame after winning the 'Player of the Tournament' in Pakistan's domestic T20 circuit.",
@@ -4187,7 +4187,7 @@
     "runs": "2339",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "103",
     "hints": [
       "Became the first Hong Kong player to score a T20 International century, smashing 122 against Oman in the 2016 Asia Cup Qualifier.",
@@ -4396,7 +4396,7 @@
     "runs": "2105",
     "wickets": "70",
     "batsman_type": "Right",
-    "bowling_type": "Right",
+    "bowling_type": "Fast",
     "matches": "70",
     "hints": [
       "The standout star of Malawi cricket, possessing an extraordinary batting average in the mid-45s over 70 T20 International matches.",
@@ -4548,7 +4548,7 @@
     "runs": "1268",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "81",
     "hints": [
       "A long-serving wicketkeeper-batsman and former captain of Ireland who played a vital role in their transition to Full Membership.",
@@ -4586,7 +4586,7 @@
     "runs": "1495",
     "wickets": "5",
     "batsman_type": "Right",
-    "bowling_type": "Right",
+    "bowling_type": "Fast",
     "matches": "70",
     "hints": [
       "The most successful captain in Scotland's history, leading them to their first-ever victory in the Super 12 stage of a T20 World Cup.",
@@ -4605,7 +4605,7 @@
     "runs": "1239",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "58",
     "hints": [
       "A mainstay of the Netherlands top order for many years, finishing his career as one of their most prolific T20I run-scorers.",
@@ -4795,7 +4795,7 @@
     "runs": "1855",
     "wickets": "15",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "76",
     "hints": [
       "A child prodigy who debuted for Kuwait at just 14 years old, becoming one of the youngest players to feature in international cricket.",
@@ -4814,7 +4814,7 @@
     "runs": "1635",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "76",
     "hints": [
       "The flamboyant opening batsman for Oman, famous for his iconic 'shh' celebration and his unique 'scoop' shots against pace.",
@@ -4852,7 +4852,7 @@
     "runs": "1710",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "72",
     "hints": [
       "Nepal's primary wicketkeeper-batsman and the first Nepalese player to be honored with the ICC Spirit of Cricket Award (2022).",
@@ -4871,7 +4871,7 @@
     "runs": "1677",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "72",
     "hints": [
       "A destructive left-handed batsman for Bahrain who smashed a magnificent T20I century against Saudi Arabia in 2025.",
@@ -4909,7 +4909,7 @@
     "runs": "1816",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "69",
     "hints": [
       "A young batting prodigy for the UAE who captained their U-19 side before becoming a core pillar of the senior top order.",
@@ -4985,7 +4985,7 @@
     "runs": "1634",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "60",
     "hints": [
       "Papua New Guinea's most prolific opening batsman, famous for his blistering 151 against Ireland in a 50-over game.",
@@ -5118,7 +5118,7 @@
     "runs": "1760",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "49",
     "hints": [
       "The captain and batting spearhead of Japan, famous for scoring a century against South Korea in late 2022.",
@@ -5232,7 +5232,7 @@
     "runs": "1471",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "59",
     "hints": [
       "The first Pakistani batsman to score a century in T20 International cricket, achieving the feat against Bangladesh in 2014.",
@@ -5251,7 +5251,7 @@
     "runs": "1160",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "45",
     "hints": [
       "Famously smashed an unbeaten 162 against Ireland in 2019, the second-highest individual score in T20I history.",
@@ -5270,7 +5270,7 @@
     "runs": "1120",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "45",
     "hints": [
       "A member of Bangladesh's 2020 U-19 World Cup-winning squad, nicknamed 'Tamim' for his similar batting style to Tamim Iqbal.",
@@ -5365,7 +5365,7 @@
     "runs": "2204",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "88",
     "hints": [
       "Uganda's all-time leading run-scorer in T20 Internationals and the first player from his country to surpass 2,000 runs in the format.",
@@ -5593,7 +5593,7 @@
     "runs": "1276",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "67",
     "hints": [
       "An explosive left-handed opener for Zimbabwe who recorded a career-best 90 in early 2026, showcasing his immense potential.",
@@ -5612,7 +5612,7 @@
     "runs": "1291",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "64",
     "hints": [
       "A technically sound wicketkeeper-batsman who has been the anchor of the Kenyan top order for over a decade.",
@@ -5631,7 +5631,7 @@
     "runs": "1136",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "64",
     "hints": [
       "A powerhouse middle-order batsman for Kuwait who smashed a magnificent century against Bahrain in 2025.",
@@ -5745,7 +5745,7 @@
     "runs": "1419",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "56",
     "hints": [
       "A dynamic middle-order batsman for Jersey, famous for his incredible athleticism and world-class fielding in the covers.",
@@ -5783,7 +5783,7 @@
     "runs": "1215",
     "wickets": "4",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "56",
     "hints": [
       "The long-standing wicketkeeper-batsman for Singapore who has been a pillar of their batting lineup since their rise to the global stage in 2019.",
@@ -6087,7 +6087,7 @@
     "runs": "1549",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "98",
     "hints": [
       "The primary wicketkeeper for Rwanda and one of the most experienced batsmen in the East African region.",
@@ -6239,7 +6239,7 @@
     "runs": "1640",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "68",
     "hints": [
       "The most prolific run-scorer in Tanzania's T20 International history, known for his ability to provide explosive starts at the top of the order.",
@@ -6258,7 +6258,7 @@
     "runs": "1579",
     "wickets": "2",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "68",
     "hints": [
       "A veteran wicketkeeper-batsman for Bahrain who has been a consistent presence in their batting lineup for several years.",
@@ -6334,7 +6334,7 @@
     "runs": "1644",
     "wickets": "6",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "60",
     "hints": [
       "The batting spearhead of Saudi Arabia who famously smashed an unbeaten 110 against Bahrain in late 2024.",
@@ -6523,7 +6523,7 @@
     "runs": "1499",
     "wickets": "2",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "96",
     "hints": [
       "A resilient middle-order batsman for Bahrain who has appeared in nearly 100 T20 Internationals for his country.",
@@ -6542,7 +6542,7 @@
     "runs": "1354",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "92",
     "hints": [
       "The first Rwandan cricketer to score a T20 International century, smashing 100* against the Seychelles in 2021.",
@@ -6561,7 +6561,7 @@
     "runs": "1228",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "89",
     "hints": [
       "The long-standing wicketkeeper-batsman for Rwanda, known for his safe gloves and middle-order stability.",
@@ -6618,7 +6618,7 @@
     "runs": "1399",
     "wickets": "3",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "76",
     "hints": [
       "The primary opening batsman for Nigeria, known for his ability to provide steady starts for the 'Yellow Greens'.",
@@ -6637,7 +6637,7 @@
     "runs": "1188",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "72",
     "hints": [
       "Indonesia's most prolific century-maker in T20 Internationals, having smashed three hundreds by early 2026.",
@@ -6656,7 +6656,7 @@
     "runs": "1265",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "70",
     "hints": [
       "One of the most destructive opening batsmen in Asian Associate cricket, known for his high strike rate and boundary-hitting ability.",
@@ -6675,7 +6675,7 @@
     "runs": "1384",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "68",
     "hints": [
       "Hong Kong's primary wicketkeeper-batsman who recorded a sensational maiden T20I century (101) against Malaysia in July 2025.",
@@ -6751,7 +6751,7 @@
     "runs": "1408",
     "wickets": "12",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "63",
     "hints": [
       "The linchpin of Bahrain's middle order, boasting a career average above 31 across more than 60 T20 Internationals.",
@@ -6808,7 +6808,7 @@
     "runs": "1345",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "57",
     "hints": [
       "A Sri Lankan-born wicketkeeper-batsman who has become a mainstay of the Qatari top order.",
@@ -6846,7 +6846,7 @@
     "runs": "1302",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "56",
     "hints": [
       "Famous for smashing the fastest ODI century by an Associate player (41 balls) and bringing that explosive power to the UAE's T20I side.",
@@ -7055,7 +7055,7 @@
     "runs": "1301",
     "wickets": "2",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "55",
     "hints": [
       "The long-standing captain of Austria who has overseen the team's rise to becoming a competitive European Associate force.",
@@ -7074,7 +7074,7 @@
     "runs": "1153",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "51",
     "hints": [
       "A veteran batsman for Belgium who famously smashed 125* against Czechia in 2020, one of the highest individual scores in Associate T20Is.",

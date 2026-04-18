@@ -45,7 +45,7 @@
     "runs": "13288",
     "wickets": "1",
     "batsman_type": "Right",
-    "bowling_type": "Spin",
+    "bowling_type": "wk",
     "matches": "164",
     "hints": [
       "Holds the world record for the most catches taken by a non-wicketkeeper in Test history (210 catches).",
@@ -254,7 +254,7 @@
     "runs": "4876",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Fast",
+    "bowling_type": "wk",
     "matches": "90",
     "hints": [
       "The only wicketkeeper-captain to lead his team in 60 Test matches.",
@@ -292,7 +292,7 @@
     "runs": "8765",
     "wickets": "2",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "114",
     "hints": [
       "Holds the record for playing the most consecutive Tests (98) from debut without being dropped.",
@@ -349,7 +349,7 @@
     "runs": "3476",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "49",
     "hints": [
       "The first Indian wicketkeeper to score Test centuries in England, Australia, and South Africa.",
@@ -482,7 +482,7 @@
     "runs": "5570",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "96",
     "hints": [
       "Held the record for the most sixes in Test cricket (100) for several years until surpassed by Brendon McCullum.",
@@ -672,7 +672,7 @@
     "runs": "5077",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "85",
     "hints": [
       "Scored a historic century at Lord's in 2014, helping India secure a famous win on a green top.",
@@ -767,7 +767,7 @@
     "runs": "6215",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "99",
     "hints": [
       "The only batsman to score centuries in each of his first three Test matches.",
@@ -786,7 +786,7 @@
     "runs": "4053",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "67",
     "hints": [
       "Possesses a technique so aesthetically pleasing that coaches use it for demos, yet he spends half his innings looking like he's having an existential crisis.",
@@ -824,7 +824,7 @@
     "runs": "4154",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "58",
     "hints": [
       "The only Indian to score centuries in five consecutive Test matches (2009-10).",
@@ -881,7 +881,7 @@
     "runs": "12400",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "134",
     "hints": [
       "Scored 11 double centuries in Test cricket, a record second only to Sir Don Bradman.",
@@ -1071,7 +1071,7 @@
     "runs": "8830",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "120",
     "hints": [
       "Scored a massive 329 against New Zealand at Lahore in 2002, the second-highest individual score for Pakistan in Tests.",
@@ -1185,7 +1185,7 @@
     "runs": "4052",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "55",
     "hints": [
       "An elegant left-hander who scored back-to-back centuries in his first two Test matches against Sri Lanka.",
@@ -1223,7 +1223,7 @@
     "runs": "3202",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "51",
     "hints": [
       "Known as 'Sixer Sidhu' for his ability to charge down the track and hit spinners out of the park.",
@@ -1470,7 +1470,7 @@
     "runs": "8625",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "103",
     "hints": [
       "Held the record for the highest individual Test score (380) for six months before Brian Lara reclaimed it.",
@@ -1527,7 +1527,7 @@
     "runs": "6229",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "88",
     "hints": [
       "The first Muslim cricketer to represent Australia, making his debut in the 2011 Sydney Ashes Test as a replacement for Ricky Ponting.",
@@ -1660,7 +1660,7 @@
     "runs": "6042",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "100",
     "hints": [
       "In 2016, he broke the world record for the most runs (1,470) and most dismissals (70) by a wicketkeeper in a calendar year.",
@@ -1831,7 +1831,7 @@
     "runs": "6510",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "100",
     "hints": [
       "The first Bangladeshi batsman to score a double century in Test cricket (200 vs Sri Lanka, 2013).",
@@ -1907,7 +1907,7 @@
     "runs": "7037",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "100",
     "hints": [
       "One of only three Englishmen to score a century on debut at Lord's, hitting 112 against New Zealand in 2004.",
@@ -2002,7 +2002,7 @@
     "runs": "6868",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "116",
     "hints": [
       "Known as the 'Colonel', he is the only overseas batsman to score three Test centuries in consecutive appearances at Lord's (1979, 1982, 1986).",
@@ -2021,7 +2021,7 @@
     "runs": "7422",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "107",
     "hints": [
       "A stout Tasmanian opener famously known for his thick mustache and for consuming 52 beers on a flight to England in 1989.",
@@ -2040,7 +2040,7 @@
     "runs": "7696",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "105",
     "hints": [
       "Forms one half of Australia's most successful opening pair in Test history alongside Matthew Hayden.",
@@ -2173,7 +2173,7 @@
     "runs": "6361",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "90",
     "hints": [
       "Scored a career-best 206* against Australia at Galle in 2022 to lead Sri Lanka to their first-ever innings victory over them.",
@@ -2420,7 +2420,7 @@
     "runs": "6261",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "91",
     "hints": [
       "The first New Zealand opener to carry his bat through a Test innings on two separate occasions.",
@@ -2496,7 +2496,7 @@
     "runs": "3300",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "54",
     "hints": [
       "The man treats a Test match like a nuisance that's keeping him away from his fishing rod and a quiet afternoon at home.",
@@ -2572,7 +2572,7 @@
     "runs": "5515",
     "wickets": "1",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "147",
     "hints": [
       "Holds the world record for the most dismissals by a wicketkeeper in Test history with 555 (532 catches and 23 stumpings).",
@@ -2591,7 +2591,7 @@
     "runs": "4356",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "119",
     "hints": [
       "Held the world record for most Test dismissals (395) at the time of his retirement in 1999.",
@@ -2705,7 +2705,7 @@
     "runs": "5134",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "70",
     "hints": [
       "The first Bangladeshi batsman to score 5,000 runs in Test cricket.",
@@ -2838,7 +2838,7 @@
     "runs": "7172",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "111",
     "hints": [
       "New Zealand's longest-serving and most successful Test captain, leading the side in 80 matches.",
@@ -2876,7 +2876,7 @@
     "runs": "7558",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "108",
     "hints": [
       "One half of the most prolific opening partnership in history alongside Desmond Haynes, totaling 6,482 runs together.",
@@ -2895,7 +2895,7 @@
     "runs": "6453",
     "wickets": "1",
     "batsman_type": "Right",
-    "bowling_type": "Fast",
+    "bowling_type": "wk",
     "matches": "101",
     "hints": [
       "The first and only New Zealander to score a Test triple century, hitting 302 against India at Wellington in 2014.",
@@ -2952,7 +2952,7 @@
     "runs": "4757",
     "wickets": "1",
     "batsman_type": "Right",
-    "bowling_type": "Spin",
+    "bowling_type": "wk",
     "matches": "73",
     "hints": [
       "At age 21, he scored a magnificent 176 against Australia at Pallekele, which turned the series and led to Sri Lanka's first sweep of the Aussies.",
@@ -3009,7 +3009,7 @@
     "runs": "3266",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "66",
     "hints": [
       "Holds the record for the most dismissals (29) by a wicketkeeper in a single Ashes series, achieved during the 2013-14 5-0 sweep.",
@@ -3142,7 +3142,7 @@
     "runs": "3732",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "64",
     "hints": [
       "Scored a monumental 196 in Hyderabad (2024), widely considered one of the greatest second-innings performances by a visiting batter in India.",
@@ -3237,7 +3237,7 @@
     "runs": "5825",
     "wickets": "1",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "76",
     "hints": [
       "Aggressive opener who scored over 5,000 Test runs in just 6 years before his international career was cut short by stress-related illness.",
@@ -3313,7 +3313,7 @@
     "runs": "6167",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "90",
     "hints": [
       "The first player to hit six sixes in an over in international cricket, though it happened in an ODI, he remained a premier Test opener for a decade.",
@@ -3636,7 +3636,7 @@
     "runs": "8463",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "133",
     "hints": [
       "Nicknamed 'The Gaffer', he is the only Englishman to play 100 Tests and score over 8,000 runs while also keeping wicket.",
@@ -3674,7 +3674,7 @@
     "runs": "4545",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "83",
     "hints": [
       "A key member of Sri Lanka's 1996 World Cup-winning squad, he was the first Sri Lankan to score a Test century against South Africa.",
@@ -3807,7 +3807,7 @@
     "runs": "3586",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "64",
     "hints": [
       "Smashed 267 against Pakistan at Southampton in 2020, becoming the third-youngest Englishman to score a Test double century.",
@@ -3997,7 +3997,7 @@
     "runs": "5312",
     "wickets": "1",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "74",
     "hints": [
       "An explosive opener who famously kissed his helmet after every century and was known for nervous 90s (9 times).",
@@ -4016,7 +4016,7 @@
     "runs": "4415",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "70",
     "hints": [
       "The only batsman in history to have hit a six on all five days of a Test match (Centenary Test, 1980).",
@@ -4054,7 +4054,7 @@
     "runs": "4794",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "63",
     "hints": [
       "Widely regarded as one of the best players of spin, he famously scored 142 and 199* in a single Test against India.",
@@ -4168,7 +4168,7 @@
     "runs": "3412",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "49",
     "hints": [
       "A prolific left-handed pioneer who held the record for the most runs in a Test career for over 15 years in the early 1900s.",
@@ -4358,7 +4358,7 @@
     "runs": "6744",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "100",
     "hints": [
       "Known as one of England's best players of spin, he famously scored a gritty 118* to lead England to a rare series win in Pakistan in 2000.",
@@ -4377,7 +4377,7 @@
     "runs": "4389",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "95",
     "hints": [
       "Widely regarded as England's greatest-ever wicketkeeper-batsman, known for his agility and eccentric warm-up routines on the field.",
@@ -4415,7 +4415,7 @@
     "runs": "5949",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "86",
     "hints": [
       "Known for his trademark wide-brimmed maroon sunhat and his fearless batting against express fast bowling without a helmet.",
@@ -4472,7 +4472,7 @@
     "runs": "5138",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "77",
     "hints": [
       "Holds the record for the most boundaries in a Test innings, hitting 52 fours and 5 sixes during his 310* against New Zealand in 1965.",
@@ -4491,7 +4491,7 @@
     "runs": "3790",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "75",
     "hints": [
       "The first New Zealand wicketkeeper to score a Test double century, hitting 205 against England at Bay Oval in 2019.",
@@ -4586,7 +4586,7 @@
     "runs": "4555",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "54",
     "hints": [
       "Finished his career with a batting average of 60.73, the highest of any Englishman to have played more than 50 Tests.",
@@ -4681,7 +4681,7 @@
     "runs": "4099",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "79",
     "hints": [
       "The first England wicketkeeper to score a century on Test debut, hitting 126* against the West Indies at Lord's in 2007.",
@@ -4928,7 +4928,7 @@
     "runs": "3633",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "96",
     "hints": [
       "The first Australian wicketkeeper to score a Test century, hitting 132 against Pakistan at Adelaide in 1972.",
@@ -5213,7 +5213,7 @@
     "runs": "4656",
     "wickets": "1",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "79",
     "hints": [
       "South African-born middle-order mainstay who scored three centuries in the 1984 series against the West Indies' 'Blackwash' attack.",
@@ -5308,7 +5308,7 @@
     "runs": "4236",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "62",
     "hints": [
       "Nicknamed 'The Judge', he was widely regarded as one of the finest players of fast bowling and a master of the square cut.",
@@ -5422,7 +5422,7 @@
     "runs": "3612",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "50",
     "hints": [
       "The first player in history to score a century in ODI cricket, though his Test career was defined by massive scores including a 262* against the West Indies.",
@@ -5498,7 +5498,7 @@
     "runs": "5334",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "82",
     "hints": [
       "The first New Zealander to score 5,000 runs in Test cricket, serving as a reliable opening pillar for over a decade.",
@@ -5631,7 +5631,7 @@
     "runs": "3798",
     "wickets": "11",
     "batsman_type": "Right",
-    "bowling_type": "Fast",
+    "bowling_type": "wk",
     "matches": "44",
     "hints": [
       "One of the legendary 'Three Ws' of Barbadian cricket, he once held the record for scoring five centuries in a single Test series (vs Australia, 1955).",
@@ -5707,7 +5707,7 @@
     "runs": "5492",
     "wickets": "39",
     "batsman_type": "Right",
-    "bowling_type": "Spin",
+    "bowling_type": "wk",
     "matches": "87",
     "hints": [
       "Inventor of the 'Dilscoop', he successfully transitioned from a middle-order specialist to one of Sri Lanka's greatest-ever opening batsmen.",
@@ -5745,7 +5745,7 @@
     "runs": "4537",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "66",
     "hints": [
       "Regarded as England's finest post-war batsman, he captained the side to victory in the Ashes and established a period of English dominance.",
@@ -5783,7 +5783,7 @@
     "runs": "3538",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "56",
     "hints": [
       "Known for a batting style strikingly similar to Brian Lara, he scored his maiden Test double century (218) against New Zealand in 2013.",
@@ -5916,7 +5916,7 @@
     "runs": "6227",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "79",
     "hints": [
       "Famous for his unique 'falling sweep' shot, he was one of the most innovative and elegant batsmen of the 1960s.",
@@ -6106,7 +6106,7 @@
     "runs": "5234",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "67",
     "hints": [
       "Nicknamed 'Phantom', he was a courageous opening batsman who shared a world-record 382-run stand with Bob Simpson against the West Indies.",
@@ -6125,7 +6125,7 @@
     "runs": "4737",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "66",
     "hints": [
       "A thin, resilient batsman who famously faced the express pace of Lillee and Thomson in the nets to help his teammates prepare.",
@@ -6714,7 +6714,7 @@
     "runs": "3374",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "59",
     "hints": [
       "A gritty left-handed opener who was a mainstay of the Australian side during the World Series Cricket era and the early 1980s.",
@@ -7018,7 +7018,7 @@
     "runs": "3322",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "81",
     "hints": [
       "The athletic wicketkeeper of the great West Indian side of the 1980s, known for his acrobatic catches off the 'Four Horsemen' of pace.",

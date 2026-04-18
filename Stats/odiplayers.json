@@ -216,7 +216,7 @@
     "runs": "9619",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "287",
     "hints": [
       "Famously used a squash ball inside his glove to score a match-winning 149 in the 2007 World Cup final against Sri Lanka.",
@@ -254,7 +254,7 @@
     "runs": "10773",
     "wickets": "1",
     "batsman_type": "Right",
-    "bowling_type": "Fast",
+    "bowling_type": "wk",
     "matches": "350",
     "hints": [
       "The only captain in history to win all three major ICC trophies: the T20 World Cup (2007), the ODI World Cup (2011), and the Champions Trophy (2013).",
@@ -349,7 +349,7 @@
     "runs": "10889",
     "wickets": "4",
     "batsman_type": "Right",
-    "bowling_type": "Spin",
+    "bowling_type": "wk",
     "matches": "344",
     "hints": [
       "The leading run-scorer of the 1999 World Cup, where he successfully transitioned from a Test specialist to an ODI mainstay.",
@@ -520,7 +520,7 @@
     "runs": "5238",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "147",
     "hints": [
       "Top-scored for India in the finals of both the 2007 T20 World Cup (75) and the 2011 ODI World Cup (97).",
@@ -634,7 +634,7 @@
     "runs": "6793",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "167",
     "hints": [
       "Nicknamed 'Gabbar', he famously scored a century on his Test debut in just 85 balls, the fastest by any debutant.",
@@ -805,7 +805,7 @@
     "runs": "3360",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "94",
     "hints": [
       "A versatile technician who can open the innings with classical poise or finish games as a middle-order wicketkeeper-batsman.",
@@ -919,7 +919,7 @@
     "runs": "14234",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "404",
     "hints": [
       "Became the first player to score four consecutive centuries in a single World Cup tournament, achieved during the 2015 edition.",
@@ -1109,7 +1109,7 @@
     "runs": "4413",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "136",
     "hints": [
       "Known as 'Sixer Sidhu' for his ability to repeatedly charge and loft spinners for massive sixes during the 1987 and 1996 World Cups.",
@@ -1166,7 +1166,7 @@
     "runs": "221",
     "wickets": "196",
     "batsman_type": "Right",
-    "bowling_type": "Right",
+    "bowling_type": "Fast",
     "matches": "161",
     "hints": [
       "Famously clean-bowled Aamir Sohail in the 1996 World Cup quarter-final immediately after being gestured at by the batsman.",
@@ -1204,7 +1204,7 @@
     "runs": "2962",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "90",
     "hints": [
       "A versatile top-order batsman who played a crucial role in India's 2015 World Cup campaign, including a standout 79 against South Africa.",
@@ -1280,7 +1280,7 @@
     "runs": "2953",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "61",
     "hints": [
       "The youngest player in history to score an ODI double century, smashing 208 against New Zealand at the age of 23.",
@@ -1432,7 +1432,7 @@
     "runs": "8113",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "181",
     "hints": [
       "The 'Mighty Hash' who broke almost every record for being the fastest to reach 2,000, 3,000, 4,000, 5,000, 6,000, and 7,000 ODI runs.",
@@ -1546,7 +1546,7 @@
     "runs": "7123",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "161",
     "hints": [
       "A baby-faced left-hander who plays with the casual aggression of a man playing a Sunday afternoon game in his backyard.",
@@ -1641,7 +1641,7 @@
     "runs": "7795",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "274",
     "hints": [
       "The first Bangladeshi batsman to score a double century in Test cricket, though he is equally a pillar of their ODI middle order.",
@@ -1660,7 +1660,7 @@
     "runs": "9577",
     "wickets": "7",
     "batsman_type": "Right",
-    "bowling_type": "Fast",
+    "bowling_type": "wk",
     "matches": "228",
     "hints": [
       "Nicknamed 'Mr. 360' for his ability to hit the ball to all parts of the ground with unconventional shots.",
@@ -1679,7 +1679,7 @@
     "runs": "5515",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "199",
     "hints": [
       "The captain who led England to their first T20 World Cup title in 2022 and was a key figure in the 2019 ODI World Cup win.",
@@ -1736,7 +1736,7 @@
     "runs": "5416",
     "wickets": "6",
     "batsman_type": "Right",
-    "bowling_type": "Right",
+    "bowling_type": "Fast",
     "matches": "161",
     "hints": [
       "Known for possessing one of the most elegant cover drives in the game, he was a mainstay of the England top order for over a decade.",
@@ -1850,7 +1850,7 @@
     "runs": "8357",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "243",
     "hints": [
       "The most prolific run-scorer in Bangladesh's history across all formats and the first from his country to reach 8,000 ODI runs.",
@@ -1926,7 +1926,7 @@
     "runs": "8094",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "248",
     "hints": [
       "The first player to hit six sixes in an over in international cricket, achieving the feat against the Netherlands in the 2007 World Cup.",
@@ -1964,7 +1964,7 @@
     "runs": "6798",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "185",
     "hints": [
       "Held the record for the highest individual score in World Cup history (188* vs UAE in 1996) for nearly two decades.",
@@ -1983,7 +1983,7 @@
     "runs": "4611",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "178",
     "hints": [
       "Nicknamed 'Killer Miller' for his explosive power-hitting and finishing ability in the death overs.",
@@ -2325,7 +2325,7 @@
     "runs": "3868",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "107",
     "hints": [
       "A dynamic opener who was a cornerstone of England's 2019 World Cup success, scoring back-to-back centuries in must-win group games.",
@@ -2344,7 +2344,7 @@
     "runs": "6083",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "260",
     "hints": [
       "Captained New Zealand to their first-ever World Cup final in 2015, known for his ultra-aggressive leadership and batting style.",
@@ -2363,7 +2363,7 @@
     "runs": "7701",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "248",
     "hints": [
       "The World Cup-winning captain who revolutionized England's white-ball cricket, leading them to glory on home soil in 2019.",
@@ -2420,7 +2420,7 @@
     "runs": "6133",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Right",
+    "bowling_type": "Fast",
     "matches": "161",
     "hints": [
       "A dominant opener who used a 'Mongoose' bat in later years, he topped the run charts in the 2007 World Cup with 659 runs.",
@@ -2515,7 +2515,7 @@
     "runs": "2773",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "73",
     "hints": [
       "Winner of the Orange Cap in the inaugural IPL season (2008), despite being an unheralded young player at the time.",
@@ -2610,7 +2610,7 @@
     "runs": "5964",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "181",
     "hints": [
       "The Man of the Match in the 1987 World Cup final, where his 75 runs helped Australia secure their first-ever world title.",
@@ -2667,7 +2667,7 @@
     "runs": "3508",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "129",
     "hints": [
       "Nicknamed 'Colonel', he achieved the rare feat of scoring three consecutive Test centuries at Lord’s between 1979 and 1986.",
@@ -2724,7 +2724,7 @@
     "runs": "4271",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "116",
     "hints": [
       "The explosive opener who set the tone for England's aggressive 'new era' of white-ball cricket under Eoin Morgan.",
@@ -2895,7 +2895,7 @@
     "runs": "3236",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Right",
+    "bowling_type": "wk",
     "matches": "157",
     "hints": [
       "An aggressive wicketkeeper-batsman who scored a memorable century against India in the 2005 Mohali Test to save the match.",
@@ -2914,7 +2914,7 @@
     "runs": "4890",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "154",
     "hints": [
       "Announced himself to the world with a brilliant 176 against Australia at Pallekele in 2016, sparking a historic series whitewash.",
@@ -2933,7 +2933,7 @@
     "runs": "6113",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "148",
     "hints": [
       "The first West Indian to score centuries in both innings of a Test match in England, achieved during the famous win at Headingley in 2017.",
@@ -2952,7 +2952,7 @@
     "runs": "4205",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "127",
     "hints": [
       "The captain who led England to their first-ever No. 1 ranking in Test cricket and back-to-back Ashes victories in 2009 and 2010-11.",
@@ -2971,7 +2971,7 @@
     "runs": "3122",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "126",
     "hints": [
       "A combative wicketkeeper-batsman who was a key member of Australia's 2015 World Cup-winning squad, famously aggressive behind the stumps in the final.",
@@ -3009,7 +3009,7 @@
     "runs": "3194",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "121",
     "hints": [
       "The youngest of the three Akmal brothers, he announced his arrival with a debut Test century in New Zealand at age 19.",
@@ -3123,7 +3123,7 @@
     "runs": "3044",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "90",
     "hints": [
       "Known for his extremely unusual batting stance, which involved turning his back almost completely to the bowler before delivery.",
@@ -3142,7 +3142,7 @@
     "runs": "3152",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "75",
     "hints": [
       "The nephew of legendary Inzamam-ul-Haq, he became the second player ever to score a century on ODI debut for Pakistan.",
@@ -3180,7 +3180,7 @@
     "runs": "4464",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "163",
     "hints": [
       "The primary wicketkeeper-batsman for New Zealand who famously scored 103* to lead a record chase against India at Mumbai in 2017.",
@@ -3256,7 +3256,7 @@
     "runs": "8648",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "238",
     "hints": [
       "Formed arguably the greatest opening partnership in cricket history alongside Gordon Greenidge for the West Indies.",
@@ -3275,7 +3275,7 @@
     "runs": "10290",
     "wickets": "106",
     "batsman_type": "Right",
-    "bowling_type": "Spin",
+    "bowling_type": "wk",
     "matches": "330",
     "hints": [
       "Famous for inventing the 'Dilscoop'—a shot where he would scoop a fast bowler over the wicketkeeper's head.",
@@ -3313,7 +3313,7 @@
     "runs": "6951",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "235",
     "hints": [
       "Formed a prolific opening partnership with Tillakaratne Dilshan, particularly during the 2011 World Cup where he scored two centuries.",
@@ -3446,7 +3446,7 @@
     "runs": "740",
     "wickets": "221",
     "batsman_type": "Right",
-    "bowling_type": "Right",
+    "bowling_type": "Fast",
     "matches": "161",
     "hints": [
       "Recorded the best-ever bowling figures by a New Zealander in ODIs, taking 7 for 33 against England in the 2015 World Cup.",
@@ -3541,7 +3541,7 @@
     "runs": "5841",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "198",
     "hints": [
       "Known for his elegant strokeplay, he was a key opener in Pakistan's 1992 World Cup-winning campaign, scoring two centuries during the tournament.",
@@ -3598,7 +3598,7 @@
     "runs": "2434",
     "wickets": "173",
     "batsman_type": "Left",
-    "bowling_type": "Right",
+    "bowling_type": "Fast",
     "matches": "160",
     "hints": [
       "A giant of an all-rounder standing 6ft 6in, he was a vital part of the New Zealand side throughout the 2000s for his big hitting and nagging medium-fast bowling.",
@@ -3655,7 +3655,7 @@
     "runs": "3514",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "113",
     "hints": [
       "Nicknamed 'Tubby', he was the captain who succeeded Allan Border and led Australia to the 1996 World Cup final.",
@@ -3712,7 +3712,7 @@
     "runs": "5935",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "245",
     "hints": [
       "Widely regarded as the greatest fielder in the history of the game, famously immortalized for his 'flying' run-out of Inzamam-ul-Haq in the 1992 World Cup.",
@@ -3788,7 +3788,7 @@
     "runs": "3854",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Right",
+    "bowling_type": "wk",
     "matches": "157",
     "hints": [
       "A technically sound batsman who scored a century in just his second ODI, a feat achieved against England at Lord's in 2011.",
@@ -3883,7 +3883,7 @@
     "runs": "3237",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "116",
     "hints": [
       "Known for his 'Sanath Jayasuriya-esque' batting style, he is a dynamic left-handed opener with a penchant for aggressive strokeplay.",
@@ -3902,7 +3902,7 @@
     "runs": "2979",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "103",
     "hints": [
       "The first player in history to score over 1,000 T20I runs in a single calendar year (2021), establishing himself as a modern giant of the format.",
@@ -4092,7 +4092,7 @@
     "runs": "2725",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "78",
     "hints": [
       "A stylish left-handed opener who scored five of his eight ODI centuries against India, earning a reputation as a specialist against the arch-rivals.",
@@ -4111,7 +4111,7 @@
     "runs": "3266",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "219",
     "hints": [
       "A gritty wicketkeeper-batsman famous for his 'chirping' behind the stumps and his trademark sweep shot against fast bowlers.",
@@ -4130,7 +4130,7 @@
     "runs": "6786",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "213",
     "hints": [
       "Widely regarded as Zimbabwe's greatest-ever batsman, he was a master of the reverse sweep and reached the No. 1 spot in the ICC Test rankings.",
@@ -4168,7 +4168,7 @@
     "runs": "4686",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "295",
     "hints": [
       "Holds the world record for the most dismissals by a wicketkeeper in international cricket, with 998 across all formats.",
@@ -4377,7 +4377,7 @@
     "runs": "5162",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "213",
     "hints": [
       "A technically sound opener who shared a then-world record partnership of 576 runs with Sanath Jayasuriya against India in 1997.",
@@ -4434,7 +4434,7 @@
     "runs": "4343",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "148",
     "hints": [
       "The long-standing captain who led Ireland through their historic transition from an Associate nation to a Test-playing country.",
@@ -4529,7 +4529,7 @@
     "runs": "2920",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "77",
     "hints": [
       "The first Sri Lankan player to score a double century in ODI history, smashing 210* against Afghanistan in 2024.",
@@ -4643,7 +4643,7 @@
     "runs": "3711",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "189",
     "hints": [
       "One half of the revolutionary opening pair (with Sanath Jayasuriya) that redefined ODI batting by attacking in the first 15 overs of the 1996 World Cup.",
@@ -4681,7 +4681,7 @@
     "runs": "609",
     "wickets": "235",
     "batsman_type": "Right",
-    "bowling_type": "Right",
+    "bowling_type": "Fast",
     "matches": "159",
     "hints": [
       "The first English bowler to reach 200 ODI wickets, he was the spearhead of the attack throughout the 1990s and early 2000s.",
@@ -4738,7 +4738,7 @@
     "runs": "3600",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "128",
     "hints": [
       "A stylish left-handed batsman who has served as the captain of Zimbabwe across all formats during a period of rebuilding.",
@@ -4852,7 +4852,7 @@
     "runs": "4677",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "170",
     "hints": [
       "Nicknamed 'The Gaffer', he is the most-capped Test player for England to have also played as a specialist wicketkeeper.",
@@ -4871,7 +4871,7 @@
     "runs": "3393",
     "wickets": "2",
     "batsman_type": "Right",
-    "bowling_type": "Spin",
+    "bowling_type": "wk",
     "matches": "150",
     "hints": [
       "In 2004, he became the youngest Test captain in history at the age of 20, a record that stood for 15 years.",
@@ -4928,7 +4928,7 @@
     "runs": "4357",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "117",
     "hints": [
       "An opening batsman who was a pillar of the 1987 World Cup-winning team, scoring two centuries during the tournament.",
@@ -4966,7 +4966,7 @@
     "runs": "2727",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "84",
     "hints": [
       "Afghanistan's first global T20 star, famous for his flamboyant 'helicopter' shots and MS Dhoni-inspired keeping.",
@@ -5137,7 +5137,7 @@
     "runs": "4010",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "122",
     "hints": [
       "Born in South Africa, he became one of England's most dependable middle-order batsmen, appearing in three consecutive World Cup finals (1983, 1987, 1992).",
@@ -5175,7 +5175,7 @@
     "runs": "3170",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Spin",
     "matches": "114",
     "hints": [
       "Renowned for his graceful, effortless left-handed style, he is often cited as one of the most aesthetically pleasing batsmen in history.",
@@ -5384,7 +5384,7 @@
     "runs": "3109",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "122",
     "hints": [
       "The younger half-brother of Dwayne Bravo, he is often compared to Brian Lara due to his strikingly similar left-handed batting style.",
@@ -5441,7 +5441,7 @@
     "runs": "3637",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "100",
     "hints": [
       "A prolific left-handed opener who held the record for the highest individual ODI score for England (113*) for several years.",
@@ -5669,7 +5669,7 @@
     "runs": "3314",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "wk",
     "matches": "179",
     "hints": [
       "The first wicketkeeper in history to score a Test century while batting at number eight, achieved against the West Indies in 1994.",
@@ -5688,7 +5688,7 @@
     "runs": "3891",
     "wickets": "0",
     "batsman_type": "Left",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "149",
     "hints": [
       "A gritty left-handed opener who formed a legendary partnership with Bruce Edgar, providing the backbone of New Zealand's batting for over a decade.",
@@ -6296,7 +6296,7 @@
     "runs": "2809",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Right",
+    "bowling_type": "Spin",
     "matches": "158",
     "hints": [
       "Famously won a Man of the Match award in an ODI against Pakistan (1986) solely for his fielding, despite not batting or bowling.",
@@ -6334,7 +6334,7 @@
     "runs": "2740",
     "wickets": "0",
     "batsman_type": "Right",
-    "bowling_type": "Unknown",
+    "bowling_type": "Fast",
     "matches": "111",
     "hints": [
       "A stylish top-order batsman who holds the unique distinction of being the only Zimbabwean to score both Test and ODI centuries against Australia.",
