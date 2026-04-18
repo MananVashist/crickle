@@ -179,7 +179,15 @@ const getH2HWinner = (myScore, theirScore, myName, theirName) => {
   return 'draw';
 };
 
-// ── Player challenge link encoding ──
+// Format a score for display — shows tries+hints even on gave up
+const formatScore = (score) => {
+  if (!score) return '?';
+  if (score.won) return `${score.tries} ${score.tries === 1 ? 'try' : 'tries'} · ${score.hints ?? 0} hint${(score.hints ?? 0) !== 1 ? 's' : ''}`;
+  const t = score.tries ?? 0;
+  const h = score.hints ?? 0;
+  if (t === 0) return 'gave up';
+  return `gave up (${t} ${t === 1 ? 'try' : 'tries'} · ${h} hint${h !== 1 ? 's' : ''})`;
+};
 const encodeChallenge = (mode, playerName) => {
   const pool = POOL[mode];
   const idx  = pool.findIndex(p => p.name === playerName);
@@ -431,35 +439,71 @@ export default function App() {
         const code = params.get('c');
         const xParam = params.get('x');
         if (!code) return;
-        
+
         const decoded = decodeChallenge(code);
         if (!decoded) return;
         const { mode: cMode, player } = decoded;
 
-        let senderName = 'A friend';
-        let challengeScore = null;
+        let incomingScore = null;
+        let incomingName = 'A friend';
         if (xParam) {
-          challengeScore = decodeH2H(xParam);
-          if (challengeScore) senderName = challengeScore.name;
+          incomingScore = decodeH2H(xParam);
+          if (incomingScore) incomingName = incomingScore.name;
         }
 
-        const newChall = {
-          id: Date.now(), sender: senderName, senderScore: challengeScore,
-          mode: cMode, code: code, status: 'pending', targetPlayer: player.name
-        };
+        // Clear URL params so refresh doesn't re-trigger
+        if (!IS_NATIVE && typeof window !== 'undefined' && window.location.search) {
+          window.history.replaceState({}, '', window.location.pathname);
+        }
 
         setSavedChallenges(prev => {
-          if (prev.find(c => c.code === code && c.sender === senderName)) return prev;
+          // Check if this is a return result for an outgoing challenge I sent
+          const outgoing = prev.find(c => c.code === code && c.outgoing === true);
+          if (outgoing && incomingName !== outgoing.sender) {
+            // This is Dhruv responding to Manan's challenge — update receiver score
+            return prev.map(c =>
+              c.id === outgoing.id
+                ? { ...c, status: 'returned', receiverName: incomingName, receiverScore: incomingScore }
+                : c
+            );
+            // No popup needed — it's just a stats update
+          }
+
+          // Incoming challenge — check not already added or already completed
+          const existing = prev.find(c => c.code === code && c.sender === incomingName);
+          if (existing) {
+            // Don't re-add, but if pending show prompt again on native
+            // On web: don't re-show if already completed
+            if (existing.status === 'completed' || existing.status === 'pending') return prev;
+            return prev;
+          }
+
+          const newChall = {
+            id: Date.now(), sender: incomingName, senderScore: incomingScore,
+            mode: cMode, code, status: 'pending', targetPlayer: player.name,
+            outgoing: false,
+          };
           return [newChall, ...prev];
         });
-        
-        if (!IS_NATIVE) {
-          setWebChallengePrompt(newChall);
-          setScreen('game'); // ensure game screen is visible for web too
-        } else {
-          setMenuTab('challenges');
-          setScreen('menu');
-        }
+
+        // Show prompt only for new incoming challenges (not return results, not already completed)
+        setSavedChallenges(prev => {
+          const outgoing = prev.find(c => c.code === code && c.outgoing === true);
+          if (outgoing) return prev; // return result, no prompt
+
+          const existing = prev.find(c => c.code === code && c.sender === incomingName);
+          if (!existing || existing.status === 'completed') return prev;
+
+          if (!IS_NATIVE) {
+            setWebChallengePrompt(existing);
+            setScreen('game');
+          } else {
+            setMenuTab('challenges');
+            setScreen('menu');
+          }
+          return prev;
+        });
+
       } catch {}
     };
 
@@ -571,12 +615,10 @@ export default function App() {
 
     let text;
     if (activeChallenge) {
-      const theirResult = activeChallenge.senderScore?.won
-        ? `${activeChallenge.senderScore.tries} ${activeChallenge.senderScore.tries === 1 ? 'try' : 'tries'}`
-        : 'gave up';
+      const theirResult = formatScore(activeChallenge.senderScore);
       text = won
-        ? `I beat ${activeChallenge.sender}'s Crickle challenge 🏏\nThey got it in ${theirResult}. I got it in ${triesStr} with ${hintsStr}.\nThink you can beat both of us? Bet you can't.`
-        : `I tried ${activeChallenge.sender}'s Crickle challenge 🏏\nThey got it in ${theirResult}. I ${triesStr}.\nBet you can't get it either.`;
+        ? `I beat ${activeChallenge.sender}'s Crickle challenge 🏏\nThey ${theirResult}. I got it in ${triesStr} with ${hintsStr}.\nThink you can beat both of us? Bet you can't.`
+        : `I tried ${activeChallenge.sender}'s Crickle challenge 🏏\nThey ${theirResult}. I ${triesStr}.\nBet you can't get it either.`;
     } else {
       text = won
         ? `I'm playing Crickle 🏏 — the cricket Wordle.\nI guessed this player in ${triesStr} with ${hintsStr}. Can you do better? Bet you can't.`
@@ -586,8 +628,14 @@ export default function App() {
     if (IS_NATIVE) {
       try {
         await Share.share({ title: 'Crickle 🏏', text: text + '\n' + shareUrl, dialogTitle: 'Challenge a friend' });
+        // Save outgoing record so we can track when they respond
+        if (code && !activeChallenge) {
+          setSavedChallenges(prev => {
+            if (prev.find(c => c.code === code && c.outgoing === true)) return prev;
+            return [{ id: Date.now(), sender: userName, senderScore: { won, tries, hints: game.hintsUsed }, mode: displayMode, code, status: 'outgoing', targetPlayer: game.target.name, outgoing: true, receiverName: null, receiverScore: null }, ...prev];
+          });
+        }
       } catch (e) {
-        // user cancelled — do nothing. any other error: copy as fallback
         if (!e?.message?.toLowerCase().includes('cancel')) {
           try { await navigator.clipboard.writeText(text + '\n' + shareUrl); } catch {}
         }
@@ -597,6 +645,13 @@ export default function App() {
     if (navigator.share) {
       try {
         await navigator.share({ title: 'Crickle 🏏', text: text + '\n', url: shareUrl });
+        // Save outgoing record on web too
+        if (code && !activeChallenge) {
+          setSavedChallenges(prev => {
+            if (prev.find(c => c.code === code && c.outgoing === true)) return prev;
+            return [{ id: Date.now(), sender: userName, senderScore: { won, tries, hints: game.hintsUsed }, mode: displayMode, code, status: 'outgoing', targetPlayer: game.target.name, outgoing: true, receiverName: null, receiverScore: null }, ...prev];
+          });
+        }
         return;
       } catch (e) {
         if (e?.name === 'AbortError') return;
@@ -896,7 +951,8 @@ export default function App() {
           {menuTab === 'challenges' && (() => {
             const groups = {};
             savedChallenges.forEach(c => {
-              const opp = c.sender || 'Unknown';
+              // For outgoing challenges, group by receiver name (or 'Awaiting response')
+              const opp = c.outgoing ? (c.receiverName || '⏳ Awaiting response') : (c.sender || 'Unknown');
               if (!groups[opp]) groups[opp] = [];
               groups[opp].push(c);
             });
@@ -914,14 +970,22 @@ export default function App() {
 
             if (rivalryView && groups[rivalryView]) {
               const challs    = groups[rivalryView];
-              const open      = challs.filter(c => c.status === 'pending');
-              const completed = challs.filter(c => c.status === 'completed');
+              const isOutgoingGroup = challs.every(c => c.outgoing);
+              const open      = challs.filter(c => c.status === 'pending' || c.status === 'outgoing');
+              const completed = challs.filter(c => c.status === 'completed' || c.status === 'returned');
+
+              // Score calc — for outgoing: my score is senderScore, their score is receiverScore
               let myWins = 0, theirWins = 0;
               completed.forEach(c => {
-                const w = getH2HWinner(c.myScore, c.senderScore, userName || 'Me', rivalryView);
-                if (w === (userName || 'Me')) myWins++;
-                else if (w === rivalryView) theirWins++;
+                const mySc  = c.outgoing ? c.senderScore   : c.myScore;
+                const thSc  = c.outgoing ? c.receiverScore : c.senderScore;
+                const myN   = c.outgoing ? (userName || 'Me') : (userName || 'Me');
+                const thN   = c.outgoing ? (c.receiverName || rivalryView) : rivalryView;
+                const w = getH2HWinner(mySc, thSc, myN, thN);
+                if (w === myN) myWins++;
+                else if (w === thN) theirWins++;
               });
+
               const shown = rivalryTab === 'open' ? open : completed;
               return (
                 <div style={{ width:'100%' }}>
@@ -967,43 +1031,44 @@ export default function App() {
                   </div>
                   {shown.length === 0 ? (
                     <div style={{ textAlign:'center', padding:'30px 20px', color:'rgba(255,255,255,0.4)', fontSize:'0.85rem' }}>
-                      {rivalryTab === 'open' ? `No open challenges from ${rivalryView}` : 'No completed challenges yet'}
+                      {rivalryTab === 'open' ? 'No open challenges' : 'No completed challenges yet'}
                     </div>
                   ) : (
                     <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
                       {shown.map(c => {
-                        const winner = c.status === 'completed' ? getH2HWinner(c.myScore, c.senderScore, userName || 'Me', rivalryView) : null;
+                        const mySc   = c.outgoing ? c.senderScore   : c.myScore;
+                        const thSc   = c.outgoing ? c.receiverScore : c.senderScore;
+                        const oppName = c.outgoing ? (c.receiverName || rivalryView) : rivalryView;
+                        const winner = (c.status === 'completed' || c.status === 'returned')
+                          ? getH2HWinner(mySc, thSc, userName || 'Me', oppName) : null;
                         const iWon   = winner === (userName || 'Me');
-                        const theyWon= winner === rivalryView;
+                        const theyWon= winner === oppName;
                         return (
                           <div key={c.id} style={{
                             background:'rgba(0,30,15,0.8)',
-                            border:`1px solid ${c.status === 'pending' ? 'rgba(251,191,36,0.2)' : iWon ? 'rgba(34,197,94,0.2)' : theyWon ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.08)'}`,
+                            border:`1px solid ${c.status === 'pending' || c.status === 'outgoing' ? 'rgba(251,191,36,0.2)' : iWon ? 'rgba(34,197,94,0.2)' : theyWon ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.08)'}`,
                             borderRadius:'12px', padding:'14px',
                           }}>
                             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                               <div>
                                 <div style={{ fontSize:'0.82rem', fontWeight:800, color:'#fff' }}>{c.mode} · {c.targetPlayer || '?'}</div>
-                                {c.status === 'completed' && (
+                                {(c.status === 'completed' || c.status === 'returned') && (
                                   <div style={{ fontSize:'0.7rem', color: iWon ? '#22c55e' : theyWon ? '#f87171' : '#fbbf24', marginTop:'3px', fontWeight:700 }}>
-                                    {iWon ? '🏆 You won' : theyWon ? `${rivalryView} won` : '🤝 Draw'}
+                                    {iWon ? '🏆 You won' : theyWon ? `${oppName} won` : '🤝 Draw'}
                                   </div>
                                 )}
-                                {c.status === 'pending' && (
-                                  <div style={{ fontSize:'0.7rem', color:'#fbbf24', marginTop:'3px', fontWeight:700 }}>Awaiting your response</div>
-                                )}
+                                {(c.status === 'pending') && <div style={{ fontSize:'0.7rem', color:'#fbbf24', marginTop:'3px', fontWeight:700 }}>Awaiting your response</div>}
+                                {(c.status === 'outgoing') && <div style={{ fontSize:'0.7rem', color:'rgba(210,240,255,0.4)', marginTop:'3px' }}>Waiting for their response</div>}
                               </div>
                               <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'4px' }}>
-                                {c.status === 'completed' && c.myScore && (
+                                {(c.status === 'completed' || c.status === 'returned') && mySc && (
                                   <div style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.6)', textAlign:'right' }}>
-                                    <span style={{ color:'rgba(210,240,255,0.9)', fontWeight:700 }}>You: </span>
-                                    {c.myScore.won ? `${c.myScore.tries} tries · ${c.myScore.hints ?? 0} hints` : 'gave up'}
+                                    <span style={{ color:'rgba(210,240,255,0.9)', fontWeight:700 }}>You: </span>{formatScore(mySc)}
                                   </div>
                                 )}
-                                {c.status === 'completed' && c.senderScore && (
+                                {(c.status === 'completed' || c.status === 'returned') && thSc && (
                                   <div style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.6)', textAlign:'right' }}>
-                                    <span style={{ color:'rgba(210,240,255,0.9)', fontWeight:700 }}>{rivalryView}: </span>
-                                    {c.senderScore.won ? `${c.senderScore.tries} tries · ${c.senderScore.hints ?? 0} hints` : 'gave up'}
+                                    <span style={{ color:'rgba(210,240,255,0.9)', fontWeight:700 }}>{oppName}: </span>{formatScore(thSc)}
                                   </div>
                                 )}
                                 {c.status === 'pending' && (
@@ -1028,14 +1093,18 @@ export default function App() {
               <div style={{ width:'100%', display:'flex', flexDirection:'column', gap:'10px' }}>
                 {opponents.map(opp => {
                   const challs    = groups[opp];
-                  const completed = challs.filter(c => c.status === 'completed');
-                  const pending   = challs.filter(c => c.status === 'pending');
+                  const completed = challs.filter(c => c.status === 'completed' || c.status === 'returned');
+                  const pending   = challs.filter(c => c.status === 'pending' || c.status === 'outgoing');
                   let myWins = 0, theirWins = 0;
                   completed.forEach(c => {
-                    const w = getH2HWinner(c.myScore, c.senderScore, userName || 'Me', opp);
+                    const mySc = c.outgoing ? c.senderScore   : c.myScore;
+                    const thSc = c.outgoing ? c.receiverScore : c.senderScore;
+                    const thN  = c.outgoing ? (c.receiverName || opp) : opp;
+                    const w = getH2HWinner(mySc, thSc, userName || 'Me', thN);
                     if (w === (userName || 'Me')) myWins++;
-                    else if (w === opp) theirWins++;
+                    else if (w === thN) theirWins++;
                   });
+                  const isAwaiting = opp.startsWith('⏳');
                   return (
                     <button key={opp} onClick={() => { setRivalryView(opp); setRivalryTab(pending.length > 0 ? 'open' : 'completed'); }} style={{
                       width:'100%', background:'rgba(0,30,15,0.8)',
@@ -1044,8 +1113,8 @@ export default function App() {
                       cursor:'pointer', textAlign:'left', fontFamily:"'Outfit',system-ui,sans-serif",
                     }}>
                       <div>
-                        <div style={{ fontSize:'0.95rem', fontWeight:800, color:'#fff', marginBottom:'4px' }}>
-                          {userName || 'Me'} vs {opp}
+                        <div style={{ fontSize:'0.95rem', fontWeight:800, color: isAwaiting ? 'rgba(210,240,255,0.5)' : '#fff', marginBottom:'4px' }}>
+                          {isAwaiting ? opp : `${userName || 'Me'} vs ${opp}`}
                         </div>
                         <div style={{ fontSize:'0.72rem', color:'rgba(210,240,255,0.5)' }}>
                           {completed.length} completed · {pending.length} open
@@ -1063,8 +1132,7 @@ export default function App() {
                         {pending.length > 0 && (
                           <span style={{
                             background:'rgba(251,191,36,0.2)', border:'1px solid rgba(251,191,36,0.4)',
-                            color:'#fbbf24', borderRadius:'6px', padding:'3px 8px',
-                            fontSize:'0.65rem', fontWeight:700,
+                            color:'#fbbf24', borderRadius:'6px', padding:'3px 8px', fontSize:'0.65rem', fontWeight:700,
                           }}>{pending.length} open</span>
                         )}
                         <span style={{ color:'rgba(255,255,255,0.3)', fontSize:'1rem' }}>→</span>
@@ -1075,7 +1143,6 @@ export default function App() {
               </div>
             );
           })()}
-
           {/* ── STATS tab ── */}
           {menuTab === 'stats' && (
             <div style={{ width:'100%' }}>
@@ -1240,19 +1307,40 @@ export default function App() {
       {/* Web Challenge Interceptor Modal */}
       {webChallengePrompt && !IS_NATIVE && (() => {
         const isAndroid = /android/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '');
+        const isIOS = /iphone|ipad|ipod/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '');
         const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.crickleapp';
-        // intent:// URL opens app if installed, falls back to Play Store if not
-        const challengeUrl = `https://crickle-game.vercel.app/?c=${webChallengePrompt.code}&x=${encodeH2H(webChallengePrompt.sender, webChallengePrompt.senderScore?.tries ?? 0, webChallengePrompt.senderScore?.hints ?? 0, webChallengePrompt.senderScore?.won ?? false)}`;
-        const intentUrl = `intent://open?c=${webChallengePrompt.code}#Intent;scheme=crickle;package=com.crickleapp;S.browser_fallback_url=${encodeURIComponent(PLAY_STORE_URL)};end`;
-        const senderResult = webChallengePrompt.senderScore?.won
-          ? `${webChallengePrompt.senderScore.tries} ${webChallengePrompt.senderScore.tries === 1 ? 'try' : 'tries'}`
-          : 'gave up';
+        const TESTER_URL = 'https://play.google.com/apps/testing/com.crickleapp';
+        const intentUrl = `intent://open?c=${webChallengePrompt.code}#Intent;scheme=crickle;package=com.crickleapp;S.browser_fallback_url=${encodeURIComponent(TESTER_URL)};end`;
+        const senderResult = formatScore(webChallengePrompt.senderScore);
+
+        // If no name yet, show name-collection step first
+        if (!userName) {
+          return (
+            <div style={{ position:'fixed', inset:0, zIndex:2000, background:'rgba(0,10,5,0.97)', display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }}>
+              <div style={{ background:'rgba(0,30,10,0.97)', border:'1px solid rgba(34,197,94,0.4)', borderRadius:'24px', padding:'28px 24px', textAlign:'center', maxWidth:'340px', width:'100%' }}>
+                <div style={{ fontSize:'2rem', marginBottom:'12px' }}>🏏</div>
+                <div style={{ fontSize:'1rem', fontWeight:900, color:'#fff', marginBottom:'6px' }}>{webChallengePrompt.sender} challenged you!</div>
+                <p style={{ fontSize:'0.8rem', color:'rgba(255,255,255,0.6)', marginBottom:'20px' }}>Enter your name so they know who beat them.</p>
+                <input
+                  autoFocus type="text" placeholder="Your Name" value={userName}
+                  onChange={e => setUserName(e.target.value)}
+                  style={{ width:'100%', padding:'12px', borderRadius:'10px', border:'1px solid rgba(255,255,255,0.2)', background:'rgba(0,0,0,0.3)', color:'#fff', marginBottom:'14px', boxSizing:'border-box', textAlign:'center', fontSize:'1rem' }}
+                />
+                <button onClick={() => {
+                  if (userName.trim().length > 0) {
+                    localStorage.setItem('crickle_username', userName.trim());
+                  }
+                }} style={{ width:'100%', padding:'12px', background:'#22c55e', border:'none', borderRadius:'10px', color:'#fff', fontWeight:800, fontSize:'1rem', cursor:'pointer', fontFamily:"'Outfit',system-ui,sans-serif" }}>
+                  Let's go →
+                </button>
+              </div>
+            </div>
+          );
+        }
 
         return (
           <div style={{ position:'fixed', inset:0, zIndex:2000, background:'rgba(0,10,5,0.97)', display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }}>
             <div style={{ background:'rgba(0,30,10,0.97)', border:'1px solid rgba(34,197,94,0.4)', borderRadius:'24px', padding:'28px 24px', textAlign:'center', maxWidth:'340px', width:'100%', boxShadow:'0 20px 60px rgba(0,0,0,0.8)' }}>
-
-              {/* Challenge card */}
               <div style={{
                 background:'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(0,20,8,0.9) 100%)',
                 border:'1px solid rgba(34,197,94,0.3)', borderRadius:'16px',
@@ -1263,13 +1351,11 @@ export default function App() {
                   {webChallengePrompt.sender} challenged you!
                 </div>
                 <div style={{ fontSize:'0.78rem', color:'rgba(210,240,255,0.55)', marginBottom:'12px' }}>
-                  They got it in <span style={{ color:'#fbbf24', fontWeight:800 }}>{senderResult}</span>. Can you beat that?
+                  They <span style={{ color:'#fbbf24', fontWeight:800 }}>{senderResult}</span>. Can you beat that?
                 </div>
                 <div style={{
-                  display:'inline-block',
-                  background:'rgba(34,197,94,0.15)', border:'1px solid rgba(34,197,94,0.35)',
-                  borderRadius:'8px', padding:'4px 14px',
-                  fontSize:'0.72rem', fontWeight:700, color:'#86efac', letterSpacing:'0.08em',
+                  display:'inline-block', background:'rgba(34,197,94,0.15)', border:'1px solid rgba(34,197,94,0.35)',
+                  borderRadius:'8px', padding:'4px 14px', fontSize:'0.72rem', fontWeight:700, color:'#86efac', letterSpacing:'0.08em',
                 }}>
                   {webChallengePrompt.mode} · CRICKLE H2H
                 </div>
@@ -1278,13 +1364,9 @@ export default function App() {
               <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
                 {isAndroid && (
                   <a href={intentUrl} style={{
-                    background:'linear-gradient(135deg,#22c55e,#16a34a)',
-                    color:'#fff', padding:'14px', borderRadius:'12px',
-                    fontWeight:900, textDecoration:'none', fontSize:'0.95rem',
-                    display:'block',
-                  }}>
-                    📱 Open in App
-                  </a>
+                    background:'linear-gradient(135deg,#22c55e,#16a34a)', color:'#fff', padding:'14px',
+                    borderRadius:'12px', fontWeight:900, textDecoration:'none', fontSize:'0.95rem', display:'block',
+                  }}>📱 Open in App</a>
                 )}
                 <button onClick={() => {
                   playSavedChallenge(webChallengePrompt);
@@ -1295,17 +1377,11 @@ export default function App() {
                   border: isAndroid ? '1px solid rgba(255,255,255,0.15)' : 'none',
                   fontWeight:800, cursor:'pointer', fontSize:'0.95rem',
                   fontFamily:"'Outfit',system-ui,sans-serif",
-                }}>
-                  🌐 Play in Browser
-                </button>
+                }}>🌐 Play in Browser</button>
                 {isAndroid && (
-                  <a href={PLAY_STORE_URL} target="_blank" rel="noreferrer" style={{
-                    color:'rgba(210,240,255,0.4)', fontSize:'0.75rem',
-                    textDecoration:'none', padding:'6px',
-                    display:'block',
-                  }}>
-                    Don't have the app? Download it →
-                  </a>
+                  <a href={TESTER_URL} target="_blank" rel="noreferrer" style={{
+                    color:'rgba(210,240,255,0.4)', fontSize:'0.75rem', textDecoration:'none', padding:'6px', display:'block',
+                  }}>Don't have the app? Join the beta →</a>
                 )}
               </div>
             </div>
@@ -1390,12 +1466,9 @@ export default function App() {
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                   <div style={{ textAlign:'left' }}>
                     <div style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.5)', textTransform:'uppercase', marginBottom:'3px' }}>{activeChallenge.sender}</div>
-                    <div style={{ fontSize:'1.2rem', fontWeight:900, color: activeChallenge.senderScore?.won ? '#fbbf24' : '#ef4444' }}>
-                      {activeChallenge.senderScore?.won ? `${activeChallenge.senderScore.tries} ${activeChallenge.senderScore.tries === 1 ? 'try' : 'tries'}` : 'gave up'}
+                    <div style={{ fontSize:'1rem', fontWeight:900, color: activeChallenge.senderScore?.won ? '#fbbf24' : '#ef4444' }}>
+                      {formatScore(activeChallenge.senderScore)}
                     </div>
-                    {activeChallenge.senderScore?.won && (
-                      <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.35)', marginTop:'2px' }}>{activeChallenge.senderScore.hints ?? 0} hints</div>
-                    )}
                   </div>
                   <div style={{ fontSize:'0.75rem', fontWeight:900, color:'rgba(34,197,94,0.7)', padding:'0 8px' }}>VS</div>
                   <div style={{ textAlign:'right' }}>
