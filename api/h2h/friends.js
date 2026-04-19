@@ -53,8 +53,19 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'sender_uid and sender_name required' });
       }
 
-      const token = randomBytes(16).toString('hex');
+      // Return existing pending request if one already exists
+      const { data: existing } = await supabase
+        .from('crickle_friendships')
+        .select('id, token')
+        .eq('user_a_uid', sender_uid)
+        .eq('status', 'pending')
+        .maybeSingle();
 
+      if (existing) {
+        return res.json({ token: existing.token, id: existing.id });
+      }
+
+      const token = randomBytes(16).toString('hex');
       const { data, error } = await supabase
         .from('crickle_friendships')
         .insert({

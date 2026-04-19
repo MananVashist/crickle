@@ -652,72 +652,66 @@ export default function App() {
     }
   }, [games.Daily]);
 
+  const [pendingFriendReq, setPendingFriendReq] = useState(() => {
+    // Check on initial load in case page was opened with ?fr= param
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const frToken = params.get('fr');
+      if (frToken) return { token: frToken, senderName: null };
+    }
+    return null;
+  });
+
   // Deep link parsing — friend requests (?fr=token) and H2H challenges (?h2h=id)
   useEffect(() => {
-    const tryFriendRequest = async (urlString) => {
-      try {
-        const search = urlString.includes('?') ? urlString.slice(urlString.indexOf('?')) : urlString;
-        const params = new URLSearchParams(search);
-        const frToken = params.get('fr');
-        const h2hId   = params.get('h2h');
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const frToken = params.get('fr');
+      const h2hId   = params.get('h2h');
 
-        if (frToken) {
-          // Store token in sessionStorage so we can retry after auth loads
-          sessionStorage.setItem('pendingFrToken', frToken);
-          if (!IS_NATIVE && typeof window !== 'undefined' && window.location.search) {
-            window.history.replaceState({}, '', window.location.pathname);
-          }
-        }
-
-        if (h2hId) {
-          setMenuTab('challenges');
-          setScreen('menu');
-          if (!IS_NATIVE && typeof window !== 'undefined' && window.location.search) {
-            window.history.replaceState({}, '', window.location.pathname);
-          }
-        }
-      } catch {}
-    };
-
-    if (typeof window !== 'undefined' && window.location.search) {
-      tryFriendRequest(window.location.search);
+      if (frToken) {
+        setPendingFriendReq({ token: frToken, senderName: null });
+        setMenuTab('challenges');
+        setScreen('menu');
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+      if (h2hId) {
+        setMenuTab('challenges');
+        setScreen('menu');
+        window.history.replaceState({}, '', window.location.pathname);
+      }
     }
+
     let urlListener;
     if (IS_NATIVE) {
       CapApp.addListener('appUrlOpen', (data) => {
-        if (data?.url) tryFriendRequest(data.url);
+        if (!data?.url) return;
+        const url = data.url;
+        const search = url.includes('?') ? url.slice(url.indexOf('?')) : '';
+        const params = new URLSearchParams(search);
+        const frToken = params.get('fr');
+        const h2hId   = params.get('h2h');
+        if (frToken) { setPendingFriendReq({ token: frToken, senderName: null }); setMenuTab('challenges'); setScreen('menu'); }
+        if (h2hId)   { setMenuTab('challenges'); setScreen('menu'); }
       }).then(l => { urlListener = l; }).catch(() => {});
     }
     return () => { urlListener?.remove(); };
   }, []);
 
+  // Fetch sender name once we have the token
+  useEffect(() => {
+    if (!pendingFriendReq?.token || pendingFriendReq.senderName) return;
+    fetch(`${FRIENDS_API}?token=${pendingFriendReq.token}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.user_a_name) setPendingFriendReq(prev => ({ ...prev, senderName: data.user_a_name })); })
+      .catch(() => {});
+  }, [pendingFriendReq?.token]);
+
   // Accept pending friend request once authUser is available
   useEffect(() => {
-    if (!authUser) return;
-    const frToken = sessionStorage.getItem('pendingFrToken');
-    if (!frToken) return;
-    sessionStorage.removeItem('pendingFrToken');
-    const accept = async () => {
-      try {
-        const res = await fetch(FRIENDS_API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'accept',
-            token: frToken,
-            receiver_uid: authUser.uid,
-            receiver_name: authUser.displayName || userName,
-          }),
-        });
-        if (res.ok) {
-          fetchFriends(authUser.uid);
-          setMenuTab('challenges');
-          setScreen('menu');
-        }
-      } catch {}
-    };
-    accept();
-  }, [authUser, userName, fetchFriends]);
+    if (!authUser || !pendingFriendReq) return;
+    // Don't auto-accept — let user see the card and click Accept
+  }, [authUser, pendingFriendReq]);
 
   const handleDailyStart = () => {
     setActiveTab('daily');
@@ -1544,7 +1538,72 @@ export default function App() {
             const myUid  = authUser.uid;
             const myName = authUser.displayName || userName;
 
-            // ── Rivalry drill-in view ──
+            // ── Pending friend request card ──
+            if (pendingFriendReq) {
+              const acceptFriend = async () => {
+                try {
+                  const res = await fetch(FRIENDS_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      action: 'accept',
+                      token: pendingFriendReq.token,
+                      receiver_uid: myUid,
+                      receiver_name: myName,
+                    }),
+                  });
+                  if (res.ok) {
+                    fetchFriends(myUid);
+                    setPendingFriendReq(null);
+                  }
+                } catch {}
+              };
+              return (
+                <div style={{ width:'100%' }}>
+                  <div style={{
+                    background:'rgba(34,197,94,0.12)', border:'2px solid rgba(34,197,94,0.5)',
+                    borderRadius:'16px', padding:'24px', textAlign:'center',
+                  }}>
+                    <div style={{ fontSize:'2rem', marginBottom:'10px' }}>🤝</div>
+                    <div style={{ fontSize:'1rem', fontWeight:800, color:'#fff', marginBottom:'6px' }}>
+                      {pendingFriendReq.senderName} wants to be your Crickle friend!
+                    </div>
+                    <p style={{ fontSize:'0.8rem', color:'rgba(210,240,255,0.6)', marginBottom:'20px' }}>
+                      Accept to challenge each other and track your rivalry.
+                    </p>
+                    {!authUser ? (
+                      <>
+                        <p style={{ fontSize:'0.78rem', color:'rgba(210,240,255,0.5)', marginBottom:'14px' }}>Sign in first to accept.</p>
+                        <button onPointerDown={handleGoogleSignIn} disabled={signingIn} style={{
+                          width:'100%', padding:'13px', background: signingIn ? 'rgba(255,255,255,0.7)' : '#fff',
+                          border:'none', borderRadius:'12px', color:'#1a1a1a', fontWeight:800, fontSize:'0.95rem',
+                          cursor: signingIn ? 'default' : 'pointer', fontFamily:"'Outfit',system-ui,sans-serif",
+                          display:'flex', alignItems:'center', justifyContent:'center', gap:'10px',
+                        }}>
+                          {signingIn ? 'Signing in…' : 'Sign in with Google'}
+                        </button>
+                      </>
+                    ) : (
+                      <div style={{ display:'flex', gap:'10px' }}>
+                        <button onClick={acceptFriend} style={{
+                          flex:1, padding:'13px',
+                          background:'linear-gradient(135deg,#22c55e,#16a34a)',
+                          border:'none', borderRadius:'12px', color:'#fff',
+                          fontWeight:900, fontSize:'0.95rem', cursor:'pointer',
+                          fontFamily:"'Outfit',system-ui,sans-serif",
+                        }}>✅ Accept</button>
+                        <button onClick={() => setPendingFriendReq(null)} style={{
+                          flex:1, padding:'13px', background:'transparent',
+                          border:'1px solid rgba(255,255,255,0.2)', borderRadius:'12px',
+                          color:'rgba(210,240,255,0.6)', fontWeight:700, fontSize:'0.9rem',
+                          cursor:'pointer', fontFamily:"'Outfit',system-ui,sans-serif",
+                        }}>Decline</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            }
             if (h2hRivalryView) {
               const friendship = friends.find(f => f.id === h2hRivalryView);
               if (!friendship) { setH2hRivalryView(null); return null; }
