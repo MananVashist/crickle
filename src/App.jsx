@@ -562,7 +562,6 @@ export default function App() {
   }, [activeTab, mode, dMode]);
 
   // Sync storage
-  useEffect(() => { saveStats(stats); }, [stats]);
   useEffect(() => { try { localStorage.setItem('crickle_challenges', JSON.stringify(savedChallenges)); } catch {} }, [savedChallenges]);
   
   // Persist endless game states (so in-progress guesses survive app close)
@@ -747,6 +746,7 @@ export default function App() {
   }, [showConfetti]);
 
   useEffect(() => { if (screen !== 'game') setShowHintDrop(false); }, [screen]);
+  useEffect(() => { if (!showHintDrop) setShowHintWarning(false); }, [showHintDrop]);
 
   const revealHint = useCallback((idx) => {
     patchGame({
@@ -905,12 +905,16 @@ export default function App() {
     setSearch('');
     if (newStatus !== 'playing') {
       if (!game.isEasy) {
-        setStats(prev => updateStats(prev, {
-          won: newStatus === 'won',
-          guesses: next.length,
-          hintsUsed: game.hintsUsed,
-          isDaily: game.isDaily
-        }));
+        setStats(prev => {
+          const next = updateStats(prev, {
+            won: newStatus === 'won',
+            guesses: next.length,
+            hintsUsed: game.hintsUsed,
+            isDaily: game.isDaily,
+          });
+          saveStats(next);
+          return next;
+        });
       }
 
       if (activeChallenge) {
@@ -934,7 +938,11 @@ export default function App() {
     if (!game || game.status !== 'playing') return;
     patchGame({ status: 'lost' });
     if (!game.isEasy) {
-      setStats(prev => updateStats(prev, { won: false, guesses: game.guesses.length, hintsUsed: game.hintsUsed, isDaily: game.isDaily }));
+      setStats(prev => {
+        const next = updateStats(prev, { won: false, guesses: game.guesses.length, hintsUsed: game.hintsUsed, isDaily: game.isDaily });
+        saveStats(next);
+        return next;
+      });
     }
     if (activeChallenge) {
       const myScore = { won: false, tries: game.guesses.length, hints: game.hintsUsed };
@@ -952,9 +960,20 @@ export default function App() {
     }
   };
 
+  const [showHintWarning, setShowHintWarning] = useState(false);
+
   const requestHint = async () => {
     if (!game || game.hintsUsed >= 3 || game.status !== 'playing') return;
     if (game.hintsUsed === 0) {
+      // Warn if there's a hintless streak to lose
+      const activeStreak = game.isDaily
+        ? (stats.dailyHintlessStreak || 0)
+        : (stats.hintlessStreak || 0);
+      if (activeStreak > 0 && !showHintWarning) {
+        setShowHintWarning(true);
+        return;
+      }
+      setShowHintWarning(false);
       patchGame({ hintsUsed: 1, revealBanner: pickRandom(HINTS[0].revealInsults) });
       return;
     }
@@ -1587,8 +1606,12 @@ export default function App() {
                       `Think you can beat that? Share yours 👇`,
                       baseUrl,
                     ].join('\n');
-                    if (navigator.share) { try { await navigator.share({ text: statsText }); return; } catch {} }
-                    try { await navigator.clipboard.writeText(statsText); alert('Copied!'); } catch {}
+                    if (IS_NATIVE) {
+                      try { await Share.share({ title: 'Crickle Stats 🏏', text: statsText, dialogTitle: 'Share your stats' }); } catch {}
+                    } else {
+                      if (navigator.share) { try { await navigator.share({ text: statsText }); return; } catch {} }
+                      try { await navigator.clipboard.writeText(statsText); alert('Copied!'); } catch {}
+                    }
                   }} style={{
                     width:'100%', padding:'13px',
                     background:'linear-gradient(135deg,#22c55e,#16a34a)',
@@ -2195,6 +2218,32 @@ export default function App() {
                           <p style={{ margin:0, fontSize:'0.82rem', lineHeight:1.5, color:'#ffffff', fontWeight:500 }}>{text}</p>
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Hintless streak warning */}
+                  {showHintWarning && game.hintsUsed === 0 && (
+                    <div style={{
+                      background:'rgba(251,191,36,0.1)', border:'1px solid rgba(251,191,36,0.4)',
+                      borderRadius:'10px', padding:'10px 12px', marginBottom:'10px',
+                    }}>
+                      <p style={{ margin:'0 0 8px', fontSize:'0.78rem', fontWeight:700, color:'#fbbf24', lineHeight:1.4 }}>
+                        ⚠️ You have a {game.isDaily ? stats.dailyHintlessStreak : stats.hintlessStreak}-game hintless streak. Using a hint will break it.
+                      </p>
+                      <div style={{ display:'flex', gap:'8px' }}>
+                        <button onClick={() => { setShowHintWarning(false); requestHint(); }} style={{
+                          flex:1, padding:'6px', background:'rgba(251,191,36,0.2)',
+                          border:'1px solid rgba(251,191,36,0.5)', borderRadius:'7px',
+                          color:'#fbbf24', fontWeight:800, fontSize:'0.78rem', cursor:'pointer',
+                          fontFamily:"'Outfit',system-ui,sans-serif",
+                        }}>Use hint anyway</button>
+                        <button onClick={() => setShowHintWarning(false)} style={{
+                          flex:1, padding:'6px', background:'transparent',
+                          border:'1px solid rgba(255,255,255,0.15)', borderRadius:'7px',
+                          color:'rgba(210,240,255,0.6)', fontWeight:700, fontSize:'0.78rem', cursor:'pointer',
+                          fontFamily:"'Outfit',system-ui,sans-serif",
+                        }}>Keep streak</button>
+                      </div>
                     </div>
                   )}
 
