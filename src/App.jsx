@@ -480,15 +480,12 @@ export default function App() {
     }
   }, [menuTab, authUser, fetchServerChallenges]);
 
-  const [authError, setAuthError]   = useState('');
   const [signingIn, setSigningIn]   = useState(false);
 
   const handleGoogleSignIn = async () => {
-    setAuthError('');
     setSigningIn(true);
     try {
       if (IS_NATIVE) {
-        // Try native Capacitor plugin (needs SHA-1 in Firebase console + updated google-services.json)
         try {
           const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
           const result = await FirebaseAuthentication.signInWithGoogle();
@@ -497,32 +494,31 @@ export default function App() {
           const credential = GoogleAuthProvider.credential(idToken);
           await signInWithCredential(firebaseAuth, credential);
         } catch (nativeErr) {
-          // Plugin unavailable or Google Sign-In misconfigured — fall back to web popup in WebView
           console.warn('Native Google sign-in failed, trying web popup:', nativeErr);
           const provider = new GoogleAuthProvider();
-          await signInWithPopup(firebaseAuth, provider);
+          await signInWithPopup(firebaseApp, provider);
         }
       } else {
-        // Web (desktop + mobile browser): popup is reliable on mobile Chrome (opens new tab).
-        // Redirect causes "opens and closes" because the Firebase authDomain differs from the
-        // deployed URL, breaking the redirect-back flow on mobile browsers.
         const provider = new GoogleAuthProvider();
         try {
           await signInWithPopup(firebaseAuth, provider);
         } catch (popupErr) {
-          if (popupErr?.code === 'auth/popup-blocked' || popupErr?.code === 'auth/popup-closed-by-user') {
+          // User dismissed the popup — silent cancel, do NOT redirect
+          const silentCodes = ['auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/user-cancelled'];
+          if (silentCodes.includes(popupErr?.code) || popupErr?.message?.toLowerCase().includes('cancel')) {
+            pendingShareRef.current = false; // clear pending share if they bailed
+            return;
+          }
+          // Only redirect if popup was actually blocked by the browser
+          if (popupErr?.code === 'auth/popup-blocked') {
             await signInWithRedirect(firebaseAuth, provider);
           } else {
-            throw popupErr;
+            console.error('Sign in error', popupErr);
           }
         }
       }
     } catch (e) {
-      const msg = e?.message || '';
-      if (!msg.toLowerCase().includes('cancel')) {
-        setAuthError(msg || 'Sign-in failed. Please try again.');
-        console.error('Sign in error', e);
-      }
+      console.error('Sign in error', e);
     } finally {
       setSigningIn(false);
     }
@@ -1263,11 +1259,6 @@ export default function App() {
                   <p style={{ fontSize:'0.8rem', color:'rgba(210,240,255,0.55)', marginBottom:'24px', lineHeight:1.6 }}>
                     Challenge friends, track rivalries, and sync your results across all your devices.
                   </p>
-                  {authError ? (
-                    <div style={{ marginBottom:'12px', padding:'10px 14px', background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.35)', borderRadius:'10px', color:'#f87171', fontSize:'0.78rem', lineHeight:1.5 }}>
-                      {authError}
-                    </div>
-                  ) : null}
                   <button
                     onPointerDown={handleGoogleSignIn}
                     disabled={signingIn}
