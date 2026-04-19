@@ -1111,7 +1111,7 @@ export default function App() {
       const res = await fetch(FRIENDS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'request', sender_uid: authUser.uid, sender_name: authUser.displayName || userName }),
+        body: JSON.stringify({ action: 'request', sender_uid: authUser.uid, sender_name: authUser.displayName || authUser.email?.split('@')[0] || 'Player' }),
       });
       if (!res.ok) return null;
       const data = await res.json();
