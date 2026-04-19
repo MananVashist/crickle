@@ -488,24 +488,32 @@ export default function App() {
     setSigningIn(true);
     try {
       if (IS_NATIVE) {
-        const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
-        const result = await FirebaseAuthentication.signInWithGoogle();
-        const credential = GoogleAuthProvider.credential(result.credential?.idToken);
-        await signInWithCredential(firebaseAuth, credential);
+        // Try native Capacitor plugin (needs SHA-1 in Firebase console + updated google-services.json)
+        try {
+          const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
+          const result = await FirebaseAuthentication.signInWithGoogle();
+          const idToken = result.credential?.idToken;
+          if (!idToken) throw new Error('No idToken from native plugin');
+          const credential = GoogleAuthProvider.credential(idToken);
+          await signInWithCredential(firebaseAuth, credential);
+        } catch (nativeErr) {
+          // Plugin unavailable or Google Sign-In misconfigured — fall back to web popup in WebView
+          console.warn('Native Google sign-in failed, trying web popup:', nativeErr);
+          const provider = new GoogleAuthProvider();
+          await signInWithPopup(firebaseAuth, provider);
+        }
       } else {
+        // Web (desktop + mobile browser): popup is reliable on mobile Chrome (opens new tab).
+        // Redirect causes "opens and closes" because the Firebase authDomain differs from the
+        // deployed URL, breaking the redirect-back flow on mobile browsers.
         const provider = new GoogleAuthProvider();
-        const isMobileWeb = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
-        if (isMobileWeb) {
-          await signInWithRedirect(firebaseAuth, provider);
-        } else {
-          try {
-            await signInWithPopup(firebaseAuth, provider);
-          } catch (popupErr) {
-            if (popupErr?.code === 'auth/popup-blocked' || popupErr?.code === 'auth/popup-closed-by-user') {
-              await signInWithRedirect(firebaseAuth, provider);
-            } else {
-              throw popupErr;
-            }
+        try {
+          await signInWithPopup(firebaseAuth, provider);
+        } catch (popupErr) {
+          if (popupErr?.code === 'auth/popup-blocked' || popupErr?.code === 'auth/popup-closed-by-user') {
+            await signInWithRedirect(firebaseAuth, provider);
+          } else {
+            throw popupErr;
           }
         }
       }
@@ -755,6 +763,16 @@ export default function App() {
   }, [patchGame]);
 
   const [showShareAuthPrompt, setShowShareAuthPrompt] = useState(false);
+  const pendingShareRef = useRef(false);
+
+  // Auto-fire share once auth state lands after signing in from share prompt
+  useEffect(() => {
+    if (authUser && pendingShareRef.current) {
+      pendingShareRef.current = false;
+      setShowShareAuthPrompt(false);
+      handleGameShare();
+    }
+  }, [authUser]);
 
   const handleGameShare = useCallback(async () => {
     if (!game) return;
@@ -1817,7 +1835,7 @@ export default function App() {
               Sign in with Google so the challenge says your name — "{authUser?.displayName || 'Your Name'} has challenged you."
             </p>
             <button
-              onPointerDown={async () => { await handleGoogleSignIn(); setShowShareAuthPrompt(false); }}
+              onPointerDown={async () => { pendingShareRef.current = true; await handleGoogleSignIn(); }}
               disabled={signingIn}
               style={{
                 width:'100%', padding:'13px',
