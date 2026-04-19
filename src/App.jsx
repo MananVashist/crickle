@@ -661,25 +661,15 @@ export default function App() {
         const frToken = params.get('fr');
         const h2hId   = params.get('h2h');
 
-        if (frToken && authUser) {
-          // Accept friend request
-          const res = await fetch(FRIENDS_API, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'accept', token: frToken, receiver_uid: authUser.uid, receiver_name: authUser.displayName || userName }),
-          });
-          if (res.ok) {
-            fetchFriends(authUser.uid);
-            setMenuTab('challenges');
-            setScreen('menu');
-          }
+        if (frToken) {
+          // Store token in sessionStorage so we can retry after auth loads
+          sessionStorage.setItem('pendingFrToken', frToken);
           if (!IS_NATIVE && typeof window !== 'undefined' && window.location.search) {
             window.history.replaceState({}, '', window.location.pathname);
           }
         }
 
         if (h2hId) {
-          // Navigate to H2H tab showing the challenge
           setMenuTab('challenges');
           setScreen('menu');
           if (!IS_NATIVE && typeof window !== 'undefined' && window.location.search) {
@@ -699,6 +689,34 @@ export default function App() {
       }).then(l => { urlListener = l; }).catch(() => {});
     }
     return () => { urlListener?.remove(); };
+  }, []);
+
+  // Accept pending friend request once authUser is available
+  useEffect(() => {
+    if (!authUser) return;
+    const frToken = sessionStorage.getItem('pendingFrToken');
+    if (!frToken) return;
+    sessionStorage.removeItem('pendingFrToken');
+    const accept = async () => {
+      try {
+        const res = await fetch(FRIENDS_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'accept',
+            token: frToken,
+            receiver_uid: authUser.uid,
+            receiver_name: authUser.displayName || userName,
+          }),
+        });
+        if (res.ok) {
+          fetchFriends(authUser.uid);
+          setMenuTab('challenges');
+          setScreen('menu');
+        }
+      } catch {}
+    };
+    accept();
   }, [authUser, userName, fetchFriends]);
 
   const handleDailyStart = () => {
