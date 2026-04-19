@@ -19,7 +19,10 @@ const FIREBASE_CONFIG = {
 const firebaseApp = initFirebase(FIREBASE_CONFIG);
 const firebaseAuth = getAuth(firebaseApp);
 
-const H2H_API = '/api/h2h/challenge';
+const H2H_API             = '/api/h2h/challenge';
+const FRIENDS_API         = '/api/h2h/friends';
+const CHALLENGE_NEW_API   = '/api/h2h/challenge-new';
+const CHALLENGE_SUBMIT_API = '/api/h2h/challenge-submit';
 
 // @ts-ignore
 const _googleFont = (() => {
@@ -97,7 +100,7 @@ const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 const HINTS = [
   { btnLabel: '💡 Use Free Hint', revealInsults: HINT1_REVEAL_INSULTS, color: '#60a5fa', dimColor: 'rgba(59,130,246,0.12)', borderColor: 'rgba(59,130,246,0.35)' },
-  { btnLabel: '📺 Watch Ad · Hint 2', revealInsults: HINT2_REVEAL_INSULTS, color: '#fb923c', dimColor: 'rgba(249,115,22,0.12)', borderColor: 'rgba(249,115,22,0.35)' },
+  { btnLabel: '📺 Watch Ad · Hint 2', revealInsults: HINT2_REVEAL_INSULTS, color: '#fb923c', dimColor: 'rgba(34,197,94,0.12)', borderColor: 'rgba(34,197,94,0.35)' },
   { btnLabel: '📺 Watch Ad · Hint 3', revealInsults: HINT3_REVEAL_INSULTS, color: '#f87171', dimColor: 'rgba(239,68,68,0.12)', borderColor: 'rgba(239,68,68,0.35)' },
 ];
 
@@ -277,6 +280,14 @@ const POOL = {
   T20:  normalizePlayers(t20PlayersRaw,  'T20'),
 };
 
+// Deduplicated tier-1/2 players from all formats — used for Easy mode
+const _easyNames = new Set();
+const EASY_POOL = [
+  ...POOL.Test.filter(p => ['1','2'].includes(String(p.tier))).map(p => ({ ...p, easyFormat: 'Test' })),
+  ...POOL.ODI.filter(p  => ['1','2'].includes(String(p.tier))).map(p => ({ ...p, easyFormat: 'ODI' })),
+  ...POOL.T20.filter(p  => ['1','2'].includes(String(p.tier))).map(p => ({ ...p, easyFormat: 'T20' })),
+].filter(p => { if (_easyNames.has(p.name)) return false; _easyNames.add(p.name); return true; });
+
 const getDailyPlayer = (format) => {
   const pool = POOL[format];
   return pool[getDaysSinceEpoch() % pool.length];
@@ -297,8 +308,14 @@ const freshGameState = (format, isDaily = false, isEasy = false) => {
     hintsUsed:    0,
     revealBanner: null,
     isDaily:      isDaily,
-    isEasy:       isEasy
+    isEasy:       isEasy,
   };
+};
+
+const freshEasyGame = () => {
+  const target = EASY_POOL[Math.floor(Math.random() * EASY_POOL.length)];
+  return { target, guesses: [], status: 'playing', hintsUsed: 0, revealBanner: null,
+           isDaily: false, isEasy: true, isH2H: false, format: target.easyFormat };
 };
 
 const boxColor = (key, gVal, tVal, g, t) => {
@@ -398,9 +415,8 @@ export default function App() {
       Test: restoreOrFresh('Test'),
       ODI:  restoreOrFresh('ODI'),
       T20:  restoreOrFresh('T20'),
-      EasyTest: freshGameState('Test', false, true),
-      EasyODI:  freshGameState('ODI', false, true),
-      EasyT20:  freshGameState('T20', false, true),
+      Easy:  freshEasyGame(),
+      H2H:   null,
       Daily: savedDaily || freshGameState(dMode, true)
     };
   });
@@ -428,8 +444,14 @@ export default function App() {
   const [serverChallenges, setServerChallenges] = useState([]);
 
   const dMode = ['Test', 'ODI', 'T20'][getDaysSinceEpoch() % 3];
-  const displayMode = activeTab === 'daily' ? dMode : mode;
-  const game = activeTab === 'daily' ? games.Daily : activeTab === 'easy' ? games['Easy' + mode] : games[mode];
+  const displayMode = activeTab === 'daily' ? dMode
+    : activeTab === 'h2h'  ? (games.H2H?.format  || 'Test')
+    : activeTab === 'easy' ? (games.Easy?.format || 'Test')
+    : mode;
+  const game = activeTab === 'daily' ? games.Daily
+    : activeTab === 'easy' ? games.Easy
+    : activeTab === 'h2h'  ? games.H2H
+    : games[mode];
 
   useEffect(() => {
     if (!IS_NATIVE) return;
@@ -473,14 +495,66 @@ export default function App() {
     return () => unsub();
   }, [fetchServerChallenges]);
 
-  // Refresh server challenges when H2H tab is opened
+  const [signingIn, setSigningIn]   = useState(false);
+
+  // ── H2H friends + challenges state ──
+  const [friends,          setFriends]          = useState([]);
+  const [h2hChallenges,    setH2hChallenges]    = useState([]);
+  const [h2hRivalryView,   setH2hRivalryView]   = useState(null);
+  const [activeH2HChallenge, setActiveH2HChallenge] = useState(null);
+
+  const fetchFriends = useCallback(async (uid) => {
+    try {
+      const res = await fetch(`${FRIENDS_API}?uid=${encodeURIComponent(uid)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data)) setFriends(data.filter(f => f.status === 'friends'));
+    } catch {}
+  }, []);
+
+  const fetchH2HChallenges = useCallback(async (uid) => {
+    try {
+      const res = await fetch(`${CHALLENGE_NEW_API}?uid=${encodeURIComponent(uid)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data)) setH2hChallenges(data);
+    } catch {}
+  }, []);
+
+  // Refresh H2H data when tab opened
   useEffect(() => {
     if (menuTab === 'challenges' && authUser) {
+      fetchFriends(authUser.uid);
+      fetchH2HChallenges(authUser.uid);
       fetchServerChallenges(authUser.uid);
     }
-  }, [menuTab, authUser, fetchServerChallenges]);
+  }, [menuTab, authUser, fetchFriends, fetchH2HChallenges, fetchServerChallenges]);
 
-  const [signingIn, setSigningIn]   = useState(false);
+  // Supabase realtime — instant updates when challenges/friendships change
+  // Requires VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env
+  useEffect(() => {
+    if (!authUser) return;
+    let cleanup;
+    const setupRealtime = async () => {
+      try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const sb = createClient(
+          import.meta.env.VITE_SUPABASE_URL,
+          import.meta.env.VITE_SUPABASE_ANON_KEY
+        );
+        const uid = authUser.uid;
+        const channel = sb.channel('h2h-realtime')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'crickle_challenges',   filter: `sender_uid=eq.${uid}` },   () => fetchH2HChallenges(uid))
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'crickle_challenges',   filter: `receiver_uid=eq.${uid}` }, () => fetchH2HChallenges(uid))
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'crickle_friendships',  filter: `user_a_uid=eq.${uid}` },   () => fetchFriends(uid))
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'crickle_friendships',  filter: `user_b_uid=eq.${uid}` },   () => fetchFriends(uid))
+          .subscribe();
+        cleanup = () => sb.removeChannel(channel);
+      } catch {}
+    };
+    setupRealtime();
+    return () => { cleanup?.(); };
+  }, [authUser, fetchFriends, fetchH2HChallenges]);
 
   const handleGoogleSignIn = async () => {
     setSigningIn(true);
@@ -496,7 +570,7 @@ export default function App() {
         } catch (nativeErr) {
           console.warn('Native Google sign-in failed, trying web popup:', nativeErr);
           const provider = new GoogleAuthProvider();
-          await signInWithPopup(firebaseApp, provider);
+          await signInWithPopup(firebaseAuth, provider);
         }
       } else {
         const provider = new GoogleAuthProvider();
@@ -543,20 +617,19 @@ export default function App() {
 
   const patchGame = useCallback((patch) => {
     setGames((prev) => {
-      const targetKey = activeTab === 'daily' ? 'Daily' : activeTab === 'easy' ? 'Easy' + mode : mode;
-      return {
-        ...prev,
-        [targetKey]: { ...prev[targetKey], ...patch },
-      };
+      const targetKey = activeTab === 'daily' ? 'Daily' : activeTab === 'easy' ? 'Easy' : activeTab === 'h2h' ? 'H2H' : mode;
+      return { ...prev, [targetKey]: { ...prev[targetKey], ...patch } };
     });
   }, [activeTab, mode]);
 
   const resetGame = useCallback(() => {
-    setActiveChallenge(null);
+    setActiveH2HChallenge(null);
     setGames((prev) => {
-      const targetKey = activeTab === 'daily' ? 'Daily' : activeTab === 'easy' ? 'Easy' + mode : mode;
+      if (activeTab === 'easy') return { ...prev, Easy: freshEasyGame() };
+      if (activeTab === 'h2h')  return { ...prev, H2H: null };
+      const targetKey    = activeTab === 'daily' ? 'Daily' : mode;
       const targetFormat = activeTab === 'daily' ? dMode : mode;
-      return { ...prev, [targetKey]: freshGameState(targetFormat, activeTab === 'daily', activeTab === 'easy') };
+      return { ...prev, [targetKey]: freshGameState(targetFormat, activeTab === 'daily') };
     });
     setSearch('');
   }, [activeTab, mode, dMode]);
@@ -579,12 +652,61 @@ export default function App() {
     }
   }, [games.Daily]);
 
+  // Deep link parsing — friend requests (?fr=token) and H2H challenges (?h2h=id)
+  useEffect(() => {
+    const tryFriendRequest = async (urlString) => {
+      try {
+        const search = urlString.includes('?') ? urlString.slice(urlString.indexOf('?')) : urlString;
+        const params = new URLSearchParams(search);
+        const frToken = params.get('fr');
+        const h2hId   = params.get('h2h');
+
+        if (frToken && authUser) {
+          // Accept friend request
+          const res = await fetch(FRIENDS_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'accept', token: frToken, receiver_uid: authUser.uid, receiver_name: authUser.displayName || userName }),
+          });
+          if (res.ok) {
+            fetchFriends(authUser.uid);
+            setMenuTab('challenges');
+            setScreen('menu');
+          }
+          if (!IS_NATIVE && typeof window !== 'undefined' && window.location.search) {
+            window.history.replaceState({}, '', window.location.pathname);
+          }
+        }
+
+        if (h2hId) {
+          // Navigate to H2H tab showing the challenge
+          setMenuTab('challenges');
+          setScreen('menu');
+          if (!IS_NATIVE && typeof window !== 'undefined' && window.location.search) {
+            window.history.replaceState({}, '', window.location.pathname);
+          }
+        }
+      } catch {}
+    };
+
+    if (typeof window !== 'undefined' && window.location.search) {
+      tryFriendRequest(window.location.search);
+    }
+    let urlListener;
+    if (IS_NATIVE) {
+      CapApp.addListener('appUrlOpen', (data) => {
+        if (data?.url) tryFriendRequest(data.url);
+      }).then(l => { urlListener = l; }).catch(() => {});
+    }
+    return () => { urlListener?.remove(); };
+  }, [authUser, userName, fetchFriends]);
+
   const handleDailyStart = () => {
     setActiveTab('daily');
     setScreen('game');
   };
 
-  // Deep link parsing
+  // Deep link parsing — old ?c= challenge links (kept for backwards compat)
   useEffect(() => {
     const tryChallenge = (urlString) => {
       try {
@@ -747,6 +869,13 @@ export default function App() {
 
   useEffect(() => { if (screen !== 'game') setShowHintDrop(false); }, [screen]);
   useEffect(() => { if (!showHintDrop) setShowHintWarning(false); }, [showHintDrop]);
+  // Redirect to menu if we land on game screen with no game (e.g. H2H not started)
+  useEffect(() => {
+    if (screen === 'game' && !game) {
+      setScreen('menu');
+      setMenuTab('challenges');
+    }
+  }, [screen, game]);
 
   const revealHint = useCallback((idx) => {
     patchGame({
@@ -894,31 +1023,120 @@ export default function App() {
     }
   };
 
+  const createH2HChallenge = useCallback(async (friendship) => {
+    if (!authUser) return;
+    // Random player from all formats, excluding today's daily
+    const dailyPlayer = getDailyPlayer(dMode);
+    const allEligible = [
+      ...POOL.Test.map(p => ({ ...p, format: 'Test' })),
+      ...POOL.ODI.map(p  => ({ ...p, format: 'ODI'  })),
+      ...POOL.T20.map(p  => ({ ...p, format: 'T20'  })),
+    ].filter(p => p.name !== dailyPlayer.name);
+    const target = allEligible[Math.floor(Math.random() * allEligible.length)];
+
+    const myUid  = authUser.uid;
+    const myName = authUser.displayName || userName;
+    const oppUid  = friendship.user_a_uid === myUid ? friendship.user_b_uid  : friendship.user_a_uid;
+    const oppName = friendship.user_a_uid === myUid ? friendship.user_b_name : friendship.user_a_name;
+
+    const pool  = POOL[target.format];
+    const idx   = pool.findIndex(p => p.name === target.name);
+    const pfx   = target.format === 'Test' ? 'TE' : target.format === 'ODI' ? 'OD' : 'T2';
+    const playerCode = pfx + String(idx).padStart(4, '0');
+
+    try {
+      const res = await fetch(CHALLENGE_NEW_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          friendship_id: friendship.id,
+          sender_uid: myUid, sender_name: myName,
+          receiver_uid: oppUid, receiver_name: oppName,
+          mode: target.format, player_code: playerCode, target_player: target.name,
+        }),
+      });
+      if (!res.ok) return;
+      const challenge = await res.json();
+      setGames(prev => ({ ...prev, H2H: {
+        target, guesses: [], status: 'playing', hintsUsed: 0, revealBanner: null,
+        isDaily: false, isEasy: false, isH2H: true, format: target.format,
+      }}));
+      setActiveH2HChallenge(challenge);
+      setActiveTab('h2h');
+      setScreen('game');
+      fetchH2HChallenges(myUid);
+    } catch {}
+  }, [authUser, userName, dMode, fetchH2HChallenges]);
+
+  const playH2HChallenge = useCallback((challenge) => {
+    const decoded = decodeChallenge(challenge.code);
+    if (!decoded) return;
+    setGames(prev => ({ ...prev, H2H: {
+      target: decoded.player, guesses: [], status: 'playing', hintsUsed: 0, revealBanner: null,
+      isDaily: false, isEasy: false, isH2H: true, format: decoded.mode,
+    }}));
+    setActiveH2HChallenge(challenge);
+    setActiveTab('h2h');
+    setScreen('game');
+  }, []);
+
+  const submitH2HScore = useCallback(async (challengeId, score) => {
+    if (!authUser) return;
+    try {
+      await fetch(CHALLENGE_SUBMIT_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ challenge_id: challengeId, uid: authUser.uid, score }),
+      });
+      fetchH2HChallenges(authUser.uid);
+      fetchFriends(authUser.uid);
+    } catch {}
+  }, [authUser, fetchH2HChallenges, fetchFriends]);
+
+  const generateFriendRequestLink = useCallback(async () => {
+    if (!authUser) return null;
+    try {
+      const res = await fetch(FRIENDS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'request', sender_uid: authUser.uid, sender_name: authUser.displayName || userName }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return `https://crickle-game.vercel.app/?fr=${data.token}`;
+    } catch { return null; }
+  }, [authUser, userName]);
+
   const handleGuess = (player) => {
     if (!game || game.status !== 'playing') return;
     if (game.guesses.some((g) => g.name === player.name)) return;
-    const next = [player, ...game.guesses];
+    const nextGuesses = [player, ...game.guesses];
     const newStatus = player.name === game.target.name
       ? 'won'
-      : next.length >= MAX_GUESSES ? 'lost' : 'playing';
-    patchGame({ guesses: next, status: newStatus });
+      : nextGuesses.length >= MAX_GUESSES ? 'lost' : 'playing';
+    patchGame({ guesses: nextGuesses, status: newStatus });
     setSearch('');
     if (newStatus !== 'playing') {
+      // H2H — submit to backend, no stats affected
+      if (game.isH2H && activeH2HChallenge) {
+        submitH2HScore(activeH2HChallenge.id, { won: newStatus === 'won', tries: nextGuesses.length, hints: game.hintsUsed });
+        return;
+      }
       if (!game.isEasy) {
         setStats(prev => {
-          const next = updateStats(prev, {
+          const updated = updateStats(prev, {
             won: newStatus === 'won',
-            guesses: next.length,
+            guesses: nextGuesses.length,
             hintsUsed: game.hintsUsed,
             isDaily: game.isDaily,
           });
-          saveStats(next);
-          return next;
+          saveStats(updated);
+          return updated;
         });
       }
 
       if (activeChallenge) {
-        const myScore = { won: newStatus === 'won', tries: next.length, hints: game.hintsUsed };
+        const myScore = { won: newStatus === 'won', tries: nextGuesses.length, hints: game.hintsUsed };
         setSavedChallenges(prev => prev.map(c =>
           c.id === activeChallenge.id ? { ...c, status: 'completed', myScore } : c
         ));
@@ -937,11 +1155,15 @@ export default function App() {
   const handleGiveUp = () => {
     if (!game || game.status !== 'playing') return;
     patchGame({ status: 'lost' });
+    if (game.isH2H && activeH2HChallenge) {
+      submitH2HScore(activeH2HChallenge.id, { won: false, tries: game.guesses.length, hints: game.hintsUsed });
+      return;
+    }
     if (!game.isEasy) {
       setStats(prev => {
-        const next = updateStats(prev, { won: false, guesses: game.guesses.length, hintsUsed: game.hintsUsed, isDaily: game.isDaily });
-        saveStats(next);
-        return next;
+        const updated = updateStats(prev, { won: false, guesses: game.guesses.length, hintsUsed: game.hintsUsed, isDaily: game.isDaily });
+        saveStats(updated);
+        return updated;
       });
     }
     if (activeChallenge) {
@@ -965,11 +1187,8 @@ export default function App() {
   const requestHint = async () => {
     if (!game || game.hintsUsed >= 3 || game.status !== 'playing') return;
     if (game.hintsUsed === 0) {
-      // Warn if there's a hintless streak to lose
-      const activeStreak = game.isDaily
-        ? (stats.dailyHintlessStreak || 0)
-        : (stats.hintlessStreak || 0);
-      if (activeStreak > 0 && !showHintWarning) {
+      // Always warn before first hint — user should make a conscious choice
+      if (!showHintWarning) {
         setShowHintWarning(true);
         return;
       }
@@ -977,55 +1196,58 @@ export default function App() {
       patchGame({ hintsUsed: 1, revealBanner: pickRandom(HINTS[0].revealInsults) });
       return;
     }
-    
-    const idx = game.hintsUsed;
 
+    const idx = game.hintsUsed;
     if (IS_NATIVE) {
       try {
         if (adListenerRef.current) { adListenerRef.current.remove(); }
         adListenerRef.current = await AdMob.addListener(
           InterstitialAdPluginEvents.Dismissed,
-          () => {
-            adListenerRef.current?.remove();
-            adListenerRef.current = null;
-            revealHint(idx);
-          }
+          () => { adListenerRef.current?.remove(); adListenerRef.current = null; revealHint(idx); }
         );
         await AdMob.showInterstitial();
-      } catch (e) {
-        revealHint(idx);
-      }
+      } catch (e) { revealHint(idx); }
     } else {
       revealHint(idx);
     }
   };
 
-  const pool = POOL[displayMode];
-  const suggestions = pool
-    .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()) && !game.guesses.find((g) => g.name === p.name))
+  const pool = activeTab === 'easy'
+    ? EASY_POOL
+    : activeTab === 'h2h'
+      ? (POOL[games.H2H?.format] || POOL.Test)
+      : POOL[displayMode];
+
+  const suggestions = (pool || [])
+    .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()) && !game?.guesses?.find((g) => g.name === p.name))
     .slice(0, 8);
 
-  const hintTexts = !game.target?.trivia ? [] :
+  const hintTexts = !game?.target?.trivia ? [] :
     ['hint1','hint2','hint3'].slice(0, game.hintsUsed).map((k) => game.target.trivia[k] ?? '');
 
   const cols = COLS.map((c) => ({ ...c, label: c.baseLabel }));
 
+  // If somehow we reach game screen with no game, bail to menu
+  if (screen === 'game' && !game) {
+    return null; // useEffect below will redirect
+  }
+
   function renderGameHeader() {
     const fmtColors = { Test:'#7dd3fc', ODI:'#86efac', T20:'#fde68a' };
-    const isDaily = game.isDaily;
+    const isDaily = game?.isDaily;
+    const isH2H   = game?.isH2H;
+    const oppName = isH2H
+      ? (activeH2HChallenge?.sender_uid === authUser?.uid
+          ? activeH2HChallenge?.receiver_name
+          : activeH2HChallenge?.sender_name) || 'Friend'
+      : null;
     return (
-      <div style={{
-        width:'100%', maxWidth:'480px',
-        display:'flex', alignItems:'center', justifyContent:'space-between',
-        marginBottom:'14px',
-      }}>
+      <div style={{ width:'100%', maxWidth:'480px', display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'14px' }}>
         <button onClick={() => { setScreen('menu'); setPlayFlow('main'); }} style={{
           background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.15)',
           borderRadius:'8px', padding:'6px 12px', color:'rgba(210,240,255,0.85)',
           fontSize:'0.75rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:'6px',
-        }}>
-          ☰ Menu
-        </button>
+        }}>☰ Menu</button>
         <div style={{ textAlign:'center' }}>
           <span style={{
             fontSize:'1.5rem', fontWeight:900, letterSpacing:'-0.04em',
@@ -1033,7 +1255,16 @@ export default function App() {
             WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent',
           }}>CRICKLE</span>
         </div>
-        {isDaily ? (
+        {isH2H ? (
+          <div style={{
+            display:'flex', flexDirection:'column', alignItems:'center',
+            background:'rgba(34,197,94,0.12)', border:'1px solid rgba(34,197,94,0.4)',
+            borderRadius:'8px', padding:'5px 10px', minWidth:'64px',
+          }}>
+            <span style={{ fontSize:'0.6rem', fontWeight:700, color:'rgba(34,197,94,0.9)', letterSpacing:'0.1em', textTransform:'uppercase' }}>⚔️ vs {oppName}</span>
+            <span style={{ fontSize:'0.9rem', fontWeight:900, color: fmtColors[displayMode] ?? '#fff', lineHeight:1.2 }}>{displayMode}</span>
+          </div>
+        ) : isDaily ? (
           <div style={{
             display:'flex', flexDirection:'column', alignItems:'center',
             background:'rgba(34,197,94,0.12)', border:'1px solid rgba(34,197,94,0.4)',
@@ -1044,12 +1275,11 @@ export default function App() {
           </div>
         ) : (
           <div style={{
-            background:'rgba(255,255,255,0.08)', border:`1px solid rgba(255,255,255,0.15)`,
-            borderRadius:'8px', padding:'6px 12px',
-            fontSize:'0.75rem', fontWeight:800,
+            background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.15)',
+            borderRadius:'8px', padding:'6px 12px', fontSize:'0.75rem', fontWeight:800,
             color: fmtColors[displayMode] ?? '#fff',
           }}>
-            {activeTab === 'easy' ? `EASY ${displayMode}` : displayMode}
+            {activeTab === 'easy' ? 'EASY' : displayMode}
           </div>
         )}
       </div>
@@ -1059,7 +1289,16 @@ export default function App() {
   const avgGuesses = stats.wins > 0 ? (stats.totalGuesses / stats.wins).toFixed(1) : '—';
   const winRate    = stats.gamesPlayed > 0 ? Math.round(stats.wins / stats.gamesPlayed * 100) : 0;
   const hintRate   = stats.gamesPlayed > 0 ? Math.round(stats.hintGames / stats.gamesPlayed * 100) : 0;
-  const pendingCount = savedChallenges.filter(c => c.status === 'pending').length;
+  // Pending = challenges where it's my turn (sender with no score, or receiver with no score)
+  const pendingCount = h2hChallenges.filter(c => {
+    if (!authUser) return false;
+    const isSender   = c.sender_uid   === authUser.uid;
+    const isReceiver = c.receiver_uid === authUser.uid;
+    return c.status === 'open' && (
+      (isSender   && !c.sender_score) ||
+      (isReceiver && !c.receiver_score)
+    );
+  }).length + savedChallenges.filter(c => c.status === 'pending').length;
 
   const FORMAT_DESC = {
     Test: { emoji:'🏏', sub:'Red ball · 5 days · Pure test of knowledge' },
@@ -1176,7 +1415,7 @@ export default function App() {
                 <span style={{ color:'rgba(255,255,255,0.4)', fontSize:'1.2rem' }}>→</span>
               </button>
 
-              <button onClick={() => setPlayFlow('easy')} style={{
+              <button onClick={() => { setActiveTab('easy'); setGames(prev => ({ ...prev, Easy: freshEasyGame() })); setScreen('game'); }} style={{
                 width:'100%', padding:'20px', background:'rgba(255,255,255,0.05)',
                 border:'2px solid rgba(255,255,255,0.1)', borderRadius:'14px',
                 cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between',
@@ -1186,7 +1425,7 @@ export default function App() {
                   <span style={{ fontSize:'1.8rem' }}>🐣</span>
                   <div style={{ textAlign:'left' }}>
                     <div style={{ fontWeight:800, fontSize:'1.1rem', color:'#38ef7d' }}>Easy Mode</div>
-                    <div style={{ fontSize:'0.75rem', color:'rgba(210,240,255,0.5)', marginTop:2 }}>Popular players only. No stats tracked.</div>
+                    <div style={{ fontSize:'0.75rem', color:'rgba(210,240,255,0.5)', marginTop:2 }}>Popular players from all formats. No stats tracked.</div>
                   </div>
                 </div>
                 <span style={{ color:'rgba(255,255,255,0.4)', fontSize:'1.2rem' }}>→</span>
@@ -1194,18 +1433,18 @@ export default function App() {
             </div>
           )}
 
-          {menuTab === 'play' && (playFlow === 'endless' || playFlow === 'easy') && (
+          {menuTab === 'play' && playFlow === 'endless' && (
             <div style={{ width:'100%' }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'12px' }}>
                 <button onClick={() => setPlayFlow('main')} style={{ background:'transparent', border:'none', color:'rgba(210,240,255,0.6)', fontWeight:800, cursor:'pointer', padding:0, fontSize:'0.85rem' }}>← Back</button>
-                <p style={{ color:'rgba(210,240,255,0.5)', fontSize:'0.75rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', margin:0 }}>Select Format {playFlow === 'easy' ? '(Easy)' : ''}</p>
-                <div style={{ width:'40px' }} /> {/* Spacer */}
+                <p style={{ color:'rgba(210,240,255,0.5)', fontSize:'0.75rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', margin:0 }}>Select Format</p>
+                <div style={{ width:'40px' }} />
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:'10px', marginBottom:'28px' }}>
                 {['Test','ODI','T20'].map(f => {
                   const isEmpty = POOL[f].length === 0;
                   const active  = mode === f;
-                  const targetGame = playFlow === 'easy' ? games['Easy' + f] : games[f];
+                  const targetGame = games[f];
                   const inProg  = targetGame?.status === 'playing' && targetGame?.guesses?.length > 0 && !targetGame.isDaily;
                   return (
                     <button key={f} onClick={() => { if(!isEmpty) { setMode(f); } }} style={{
@@ -1232,10 +1471,7 @@ export default function App() {
                   );
                 })}
               </div>
-              <button onClick={() => {
-                setActiveTab(playFlow === 'easy' ? 'easy' : 'endless');
-                setScreen('game');
-              }} style={{
+              <button onClick={() => { setActiveTab('endless'); setScreen('game'); }} style={{
                 width:'100%', padding:'16px',
                 background:'linear-gradient(135deg,#22c55e,#16a34a)',
                 border:'none', borderRadius:'12px', color:'#fff',
@@ -1243,297 +1479,263 @@ export default function App() {
                 fontFamily:"'Outfit',system-ui,sans-serif",
                 boxShadow:'0 4px 24px rgba(34,197,94,0.35)',
               }}>
-                {(() => {
-                  const targetGame = playFlow === 'easy' ? games['Easy' + mode] : games[mode];
-                  return targetGame?.guesses?.length > 0 && !targetGame.isDaily ? `Continue ${mode} Game` : `Start ${mode} Game`;
-                })()}
+                {games[mode]?.guesses?.length > 0 && !games[mode]?.isDaily ? `Continue ${mode} Game` : `Start ${mode} Game`}
               </button>
-              {(() => {
-                const targetGame = playFlow === 'easy' ? games['Easy' + mode] : games[mode];
-                return targetGame?.guesses?.length > 0 && !targetGame.isDaily && (
-                  <button onClick={() => { setActiveTab(playFlow === 'easy' ? 'easy' : 'endless'); resetGame(); setScreen('game'); }} style={{
-                    width:'100%', padding:'12px', marginTop:'8px',
-                    background:'transparent', border:'1px solid rgba(255,255,255,0.15)',
-                    borderRadius:'12px', color:'rgba(210,240,255,0.6)',
-                    fontWeight:700, fontSize:'0.85rem', cursor:'pointer',
-                    fontFamily:"'Outfit',system-ui,sans-serif",
-                  }}>New Game</button>
-                );
-              })()}
+              {games[mode]?.guesses?.length > 0 && !games[mode]?.isDaily && (
+                <button onClick={() => { setActiveTab('endless'); resetGame(); setScreen('game'); }} style={{
+                  width:'100%', padding:'12px', marginTop:'8px',
+                  background:'transparent', border:'1px solid rgba(255,255,255,0.15)',
+                  borderRadius:'12px', color:'rgba(210,240,255,0.6)',
+                  fontWeight:700, fontSize:'0.85rem', cursor:'pointer',
+                  fontFamily:"'Outfit',system-ui,sans-serif",
+                }}>New Game</button>
+              )}
             </div>
           )}
 
           {/* ── CHALLENGES tab ── */}
           {menuTab === 'challenges' && (() => {
+            const GoogleBtn = ({ onPress }) => (
+              <button onPointerDown={onPress} disabled={signingIn} style={{
+                width:'100%', padding:'14px', background: signingIn ? 'rgba(255,255,255,0.7)' : '#fff',
+                border:'none', borderRadius:'12px', color:'#1a1a1a', fontWeight:800, fontSize:'0.95rem',
+                cursor: signingIn ? 'default' : 'pointer', fontFamily:"'Outfit',system-ui,sans-serif",
+                display:'flex', alignItems:'center', justifyContent:'center', gap:'10px',
+                touchAction:'manipulation', userSelect:'none',
+              }}>
+                {signingIn ? <span>Signing in…</span> : (<>
+                  <svg width="20" height="20" viewBox="0 0 24 24" style={{ pointerEvents:'none', flexShrink:0 }}><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                  <span style={{ pointerEvents:'none' }}>Continue with Google</span>
+                </>)}
+              </button>
+            );
 
-            // ── Sign-in gate ──
-            if (authLoading) {
-              return <div style={{ textAlign:'center', padding:'40px 20px', color:'rgba(210,240,255,0.5)', fontSize:'0.9rem' }}>Loading…</div>;
-            }
-            if (!authUser) {
-              return (
-                <div style={{ textAlign:'center', padding:'40px 20px' }}>
-                  <div style={{ fontSize:'2.5rem', marginBottom:'16px' }}>🏏</div>
-                  <div style={{ fontSize:'1rem', fontWeight:800, color:'#fff', marginBottom:'8px' }}>Sign in to play H2H</div>
-                  <p style={{ fontSize:'0.8rem', color:'rgba(210,240,255,0.55)', marginBottom:'24px', lineHeight:1.6 }}>
-                    Challenge friends, track rivalries, and sync your results across all your devices.
-                  </p>
-                  <button
-                    onPointerDown={handleGoogleSignIn}
-                    disabled={signingIn}
-                    style={{
-                      width:'100%', padding:'14px',
-                      background: signingIn ? 'rgba(255,255,255,0.7)' : '#fff',
-                      border:'none', borderRadius:'12px',
-                      color:'#1a1a1a', fontWeight:800, fontSize:'0.95rem',
-                      cursor: signingIn ? 'default' : 'pointer',
-                      fontFamily:"'Outfit',system-ui,sans-serif",
-                      display:'flex', alignItems:'center', justifyContent:'center', gap:'10px',
-                      touchAction:'manipulation', userSelect:'none',
-                      WebkitTapHighlightColor:'rgba(0,0,0,0.1)',
-                    }}
-                  >
-                    {signingIn ? (
-                      <span style={{ fontSize:'0.9rem' }}>Signing in…</span>
-                    ) : (
-                      <>
-                        <svg width="20" height="20" viewBox="0 0 24 24" style={{ pointerEvents:'none', flexShrink:0 }}>
-                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                        </svg>
-                        <span style={{ pointerEvents:'none' }}>Continue with Google</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              );
-            }
+            if (authLoading) return <div style={{ textAlign:'center', padding:'40px 20px', color:'rgba(210,240,255,0.5)' }}>Loading…</div>;
 
-            // ── Server is sole source of truth when signed in ──
-            const allChallenges = serverChallenges.map(sc => {
-              const isSender = sc.sender_uid === authUser.uid;
-              return {
-                id: sc.id,
-                code: sc.code,
-                mode: sc.mode,
-                sourceMode: sc.source_mode || '',
-                targetPlayer: sc.target_player,
-                outgoing: isSender,
-                sender: sc.sender_name,
-                senderScore: sc.sender_score,
-                receiverName: sc.receiver_name,
-                receiverScore: sc.receiver_score,
-                status: sc.receiver_score
-                  ? 'completed'
-                  : isSender ? 'outgoing' : 'pending',
-                myScore: isSender ? sc.sender_score : sc.receiver_score,
-              };
-            });
+            if (!authUser) return (
+              <div style={{ textAlign:'center', padding:'40px 20px' }}>
+                <div style={{ fontSize:'2.5rem', marginBottom:'16px' }}>⚔️</div>
+                <div style={{ fontSize:'1rem', fontWeight:800, color:'#fff', marginBottom:'8px' }}>Sign in to play H2H</div>
+                <p style={{ fontSize:'0.8rem', color:'rgba(210,240,255,0.55)', marginBottom:'24px', lineHeight:1.6 }}>
+                  Add friends, challenge them to the same puzzle, and track your rivalry score.
+                </p>
+                <GoogleBtn onPress={handleGoogleSignIn} />
+              </div>
+            );
 
-            const groups = {};
-            allChallenges.forEach(c => {
-              const opp = c.outgoing ? (c.receiverName || '⏳ Awaiting response') : (c.sender || 'Unknown');
-              if (!groups[opp]) groups[opp] = [];
-              groups[opp].push(c);
-            });
-            const opponents = Object.keys(groups);
+            const myUid  = authUser.uid;
+            const myName = authUser.displayName || userName;
 
-            if (opponents.length === 0) {
-              return (
-                <div style={{ textAlign:'center', padding:'40px 20px', color:'rgba(255,255,255,0.5)' }}>
-                  <div style={{ fontSize:'2rem', marginBottom:'10px' }}>📭</div>
-                  <p style={{ fontSize:'0.9rem', fontWeight:600 }}>No challenges yet.</p>
-                  <p style={{ fontSize:'0.75rem' }}>Finish a game and send a challenge to a friend!</p>
-                  <button onClick={handleSignOut} style={{
-                    marginTop:'20px', background:'transparent', border:'none',
-                    color:'rgba(210,240,255,0.3)', fontSize:'0.72rem', cursor:'pointer',
-                  }}>Signed in as {authUser.displayName} · Sign out</button>
-                </div>
-              );
-            }
+            // ── Rivalry drill-in view ──
+            if (h2hRivalryView) {
+              const friendship = friends.find(f => f.id === h2hRivalryView);
+              if (!friendship) { setH2hRivalryView(null); return null; }
+              const oppName = friendship.user_a_uid === myUid ? friendship.user_b_name : friendship.user_a_name;
+              const aWins = friendship.user_a_uid === myUid ? friendship.a_wins : friendship.b_wins;
+              const bWins = friendship.user_a_uid === myUid ? friendship.b_wins : friendship.a_wins;
 
-            if (rivalryView && groups[rivalryView]) {
-              const challs    = groups[rivalryView];
-              const isOutgoingGroup = challs.every(c => c.outgoing);
-              const open      = challs.filter(c => c.status === 'pending' || c.status === 'outgoing');
-              const completed = challs.filter(c => c.status === 'completed' || c.status === 'returned');
+              const rivalChallenges = h2hChallenges.filter(c => c.friendship_id === friendship.id);
+              const open      = rivalChallenges.filter(c => c.status === 'open');
+              const completed = rivalChallenges.filter(c => c.status === 'completed');
 
-              // Score calc — for outgoing: my score is senderScore, their score is receiverScore
-              let myWins = 0, theirWins = 0;
-              completed.forEach(c => {
-                const mySc  = c.outgoing ? c.senderScore   : c.myScore;
-                const thSc  = c.outgoing ? c.receiverScore : c.senderScore;
-                const myN   = c.outgoing ? (userName || 'Me') : (userName || 'Me');
-                const thN   = c.outgoing ? (c.receiverName || rivalryView) : rivalryView;
-                const w = getH2HWinner(mySc, thSc, myN, thN);
-                if (w === myN) myWins++;
-                else if (w === thN) theirWins++;
-              });
-
-              const shown = rivalryTab === 'open' ? open : completed;
               return (
                 <div style={{ width:'100%' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'16px' }}>
-                    <button onClick={() => setRivalryView(null)} style={{
-                      background:'transparent', border:'none', color:'rgba(210,240,255,0.6)',
-                      fontWeight:800, cursor:'pointer', fontSize:'0.85rem', padding:0,
-                    }}>← Back</button>
+                    <button onClick={() => setH2hRivalryView(null)} style={{ background:'transparent', border:'none', color:'rgba(210,240,255,0.6)', fontWeight:800, cursor:'pointer', fontSize:'0.85rem', padding:0 }}>← Back</button>
                   </div>
-                  <div style={{
-                    background:'rgba(0,30,10,0.9)', border:'1px solid rgba(34,197,94,0.3)',
-                    borderRadius:'16px', padding:'16px', marginBottom:'16px', textAlign:'center',
-                  }}>
+
+                  {/* Rivalry score header */}
+                  <div style={{ background:'rgba(0,30,10,0.9)', border:'1px solid rgba(34,197,94,0.3)', borderRadius:'16px', padding:'16px', marginBottom:'16px', textAlign:'center' }}>
                     <div style={{ fontSize:'0.65rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', color:'rgba(210,240,255,0.4)', marginBottom:'10px' }}>Head to Head</div>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <div style={{ display:'flex', justifyContent:'space-around', alignItems:'center' }}>
                       <div>
-                        <div style={{ fontSize:'0.75rem', color:'rgba(255,255,255,0.5)', marginBottom:'4px' }}>{userName || 'Me'}</div>
-                        <div style={{ fontSize:'2.2rem', fontWeight:900, color: myWins > theirWins ? '#22c55e' : myWins === theirWins ? '#fff' : '#f87171', lineHeight:1 }}>{myWins}</div>
+                        <div style={{ fontSize:'0.75rem', color:'rgba(255,255,255,0.5)', marginBottom:'4px' }}>{myName}</div>
+                        <div style={{ fontSize:'2.2rem', fontWeight:900, color: aWins > bWins ? '#22c55e' : aWins < bWins ? '#f87171' : '#fff', lineHeight:1 }}>{aWins}</div>
                       </div>
                       <div style={{ fontSize:'0.8rem', fontWeight:900, color:'rgba(255,255,255,0.3)' }}>VS</div>
                       <div>
-                        <div style={{ fontSize:'0.75rem', color:'rgba(255,255,255,0.5)', marginBottom:'4px' }}>{rivalryView}</div>
-                        <div style={{ fontSize:'2.2rem', fontWeight:900, color: theirWins > myWins ? '#22c55e' : myWins === theirWins ? '#fff' : '#f87171', lineHeight:1 }}>{theirWins}</div>
+                        <div style={{ fontSize:'0.75rem', color:'rgba(255,255,255,0.5)', marginBottom:'4px' }}>{oppName}</div>
+                        <div style={{ fontSize:'2.2rem', fontWeight:900, color: bWins > aWins ? '#22c55e' : bWins < aWins ? '#f87171' : '#fff', lineHeight:1 }}>{bWins}</div>
                       </div>
                     </div>
-                    {completed.length > 0 && myWins === theirWins && (
-                      <div style={{ marginTop:'8px', fontSize:'0.72rem', color:'#fbbf24', fontWeight:700 }}>🤝 All square</div>
-                    )}
                   </div>
-                  <div style={{
-                    display:'flex', gap:'4px', background:'rgba(0,25,10,0.9)',
-                    border:'1px solid rgba(255,255,255,0.1)', borderRadius:'10px', padding:'3px', marginBottom:'12px',
-                  }}>
-                    {[['open', `Open (${open.length})`], ['completed', `Completed (${completed.length})`]].map(([id, label]) => (
-                      <button key={id} onClick={() => setRivalryTab(id)} style={{
-                        flex:1, padding:'7px 4px', borderRadius:'7px', border:'none', cursor:'pointer',
-                        fontWeight:700, fontSize:'0.78rem',
-                        background: rivalryTab === id ? 'linear-gradient(135deg,#22c55e,#16a34a)' : 'transparent',
-                        color: rivalryTab === id ? '#fff' : 'rgba(210,240,255,0.5)',
-                        fontFamily:"'Outfit',system-ui,sans-serif",
-                      }}>{label}</button>
-                    ))}
-                  </div>
-                  {shown.length === 0 ? (
-                    <div style={{ textAlign:'center', padding:'30px 20px', color:'rgba(255,255,255,0.4)', fontSize:'0.85rem' }}>
-                      {rivalryTab === 'open' ? 'No open challenges' : 'No completed challenges yet'}
-                    </div>
-                  ) : (
-                    <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
-                      {shown.map(c => {
-                        const mySc   = c.outgoing ? c.senderScore   : c.myScore;
-                        const thSc   = c.outgoing ? c.receiverScore : c.senderScore;
-                        const oppName = c.outgoing ? (c.receiverName || rivalryView) : rivalryView;
-                        const winner = (c.status === 'completed' || c.status === 'returned')
-                          ? getH2HWinner(mySc, thSc, userName || 'Me', oppName) : null;
-                        const iWon   = winner === (userName || 'Me');
-                        const theyWon= winner === oppName;
-                        return (
-                          <div key={c.id} style={{
-                            background:'rgba(0,30,15,0.8)',
-                            border:`1px solid ${c.status === 'pending' || c.status === 'outgoing' ? 'rgba(251,191,36,0.2)' : iWon ? 'rgba(34,197,94,0.2)' : theyWon ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.08)'}`,
-                            borderRadius:'12px', padding:'14px',
-                          }}>
-                            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+
+                  {/* Challenge button */}
+                  <button onClick={() => createH2HChallenge(friendship)} style={{
+                    width:'100%', padding:'14px', marginBottom:'16px',
+                    background:'linear-gradient(135deg,#22c55e,#16a34a)', border:'none',
+                    borderRadius:'12px', color:'#fff', fontWeight:900, fontSize:'0.95rem',
+                    cursor:'pointer', fontFamily:"'Outfit',system-ui,sans-serif",
+                    boxShadow:'0 4px 20px rgba(34,197,94,0.35)',
+                  }}>⚔️ Challenge {oppName}</button>
+
+                  {/* Open challenges */}
+                  {open.length > 0 && (
+                    <div style={{ marginBottom:'16px' }}>
+                      <div style={{ fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:'rgba(251,191,36,0.8)', marginBottom:'8px' }}>Open ({open.length})</div>
+                      <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+                        {open.map(c => {
+                          const isSender   = c.sender_uid   === myUid;
+                          const myPlayed   = isSender ? !!c.sender_score   : !!c.receiver_score;
+                          const theyPlayed = isSender ? !!c.receiver_score : !!c.sender_score;
+                          return (
+                            <div key={c.id} style={{ background:'rgba(0,30,15,0.8)', border:'1px solid rgba(251,191,36,0.25)', borderRadius:'12px', padding:'12px 14px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                               <div>
-                                <div style={{ fontSize:'0.82rem', fontWeight:800, color:'#fff' }}>{c.mode} {c.sourceMode ? `(${c.sourceMode})` : ''} · {c.targetPlayer || '?'}</div>
-                                {(c.status === 'completed' || c.status === 'returned') && (
-                                  <div style={{ fontSize:'0.7rem', color: iWon ? '#22c55e' : theyWon ? '#f87171' : '#fbbf24', marginTop:'3px', fontWeight:700 }}>
+                                <div style={{ fontSize:'0.82rem', fontWeight:800, color:'#fff' }}>{c.mode} · {c.target_player}</div>
+                                <div style={{ fontSize:'0.7rem', color:'rgba(210,240,255,0.5)', marginTop:'2px' }}>
+                                  {myPlayed ? '✅ You played' : '⏳ Your turn'} · {theyPlayed ? `✅ ${oppName} played` : `⏳ ${oppName} pending`}
+                                </div>
+                              </div>
+                              {!myPlayed && (
+                                <button onClick={() => playH2HChallenge(c)} style={{
+                                  background:'#22c55e', color:'#fff', border:'none', borderRadius:'8px',
+                                  padding:'7px 14px', fontWeight:800, cursor:'pointer', fontSize:'0.8rem',
+                                  fontFamily:"'Outfit',system-ui,sans-serif",
+                                }}>Play</button>
+                              )}
+                              {myPlayed && !theyPlayed && (
+                                <button onClick={async () => {
+                                  const link = `https://crickle-game.vercel.app/?h2h=${c.id}`;
+                                  const text = `${myName} challenged you to a Crickle ${c.mode} puzzle 🏏 — open your H2H tab to play!\n${link}`;
+                                  if (IS_NATIVE) { try { await Share.share({ title:'Crickle H2H', text, dialogTitle:'Nudge your friend' }); } catch {} }
+                                  else if (navigator.share) { try { await navigator.share({ text }); } catch {} }
+                                  else { try { await navigator.clipboard.writeText(text); } catch {} }
+                                }} style={{
+                                  background:'rgba(251,191,36,0.2)', border:'1px solid rgba(251,191,36,0.4)',
+                                  color:'#fbbf24', borderRadius:'8px', padding:'7px 12px',
+                                  fontWeight:700, cursor:'pointer', fontSize:'0.75rem',
+                                  fontFamily:"'Outfit',system-ui,sans-serif",
+                                }}>Nudge 👋</button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Completed */}
+                  {completed.length > 0 && (
+                    <div>
+                      <div style={{ fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:'rgba(210,240,255,0.5)', marginBottom:'8px' }}>Completed ({completed.length})</div>
+                      <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+                        {completed.map(c => {
+                          const isSender  = c.sender_uid === myUid;
+                          const myScore   = isSender ? c.sender_score   : c.receiver_score;
+                          const theirScore= isSender ? c.receiver_score : c.sender_score;
+                          const iWon      = c.winner_uid === myUid;
+                          const theyWon   = c.winner_uid && c.winner_uid !== myUid;
+                          return (
+                            <div key={c.id} style={{
+                              background:'rgba(0,30,15,0.8)',
+                              border:`1px solid ${iWon ? 'rgba(34,197,94,0.25)' : theyWon ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.08)'}`,
+                              borderRadius:'12px', padding:'12px 14px',
+                            }}>
+                              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                                <div>
+                                  <div style={{ fontSize:'0.82rem', fontWeight:800, color:'#fff' }}>{c.mode} · {c.target_player}</div>
+                                  <div style={{ fontSize:'0.7rem', fontWeight:700, marginTop:'3px', color: iWon ? '#22c55e' : theyWon ? '#f87171' : '#fbbf24' }}>
                                     {iWon ? '🏆 You won' : theyWon ? `${oppName} won` : '🤝 Draw'}
                                   </div>
-                                )}
-                                {(c.status === 'pending') && <div style={{ fontSize:'0.7rem', color:'#fbbf24', marginTop:'3px', fontWeight:700 }}>Awaiting your response</div>}
-                                {(c.status === 'outgoing') && <div style={{ fontSize:'0.7rem', color:'rgba(210,240,255,0.4)', marginTop:'3px' }}>Waiting for their response</div>}
-                              </div>
-                              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'4px' }}>
-                                {(c.status === 'completed' || c.status === 'returned') && mySc && (
-                                  <div style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.6)', textAlign:'right' }}>
-                                    <span style={{ color:'rgba(210,240,255,0.9)', fontWeight:700 }}>You: </span>{formatScore(mySc)}
-                                  </div>
-                                )}
-                                {(c.status === 'completed' || c.status === 'returned') && thSc && (
-                                  <div style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.6)', textAlign:'right' }}>
-                                    <span style={{ color:'rgba(210,240,255,0.9)', fontWeight:700 }}>{oppName}: </span>{formatScore(thSc)}
-                                  </div>
-                                )}
-                                {c.status === 'pending' && (
-                                  <button onClick={() => playSavedChallenge(c)} style={{
-                                    background:'#22c55e', color:'#fff', border:'none',
-                                    borderRadius:'8px', padding:'7px 14px', fontWeight:800, cursor:'pointer', fontSize:'0.8rem',
-                                    fontFamily:"'Outfit',system-ui,sans-serif",
-                                  }}>Play</button>
-                                )}
+                                </div>
+                                <div style={{ textAlign:'right', fontSize:'0.7rem', color:'rgba(210,240,255,0.5)' }}>
+                                  <div>You: {formatScore(myScore)}</div>
+                                  <div>{oppName}: {formatScore(theirScore)}</div>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
+                  )}
+
+                  {open.length === 0 && completed.length === 0 && (
+                    <div style={{ textAlign:'center', padding:'30px', color:'rgba(255,255,255,0.4)', fontSize:'0.85rem' }}>No challenges yet. Challenge {oppName} above!</div>
                   )}
                 </div>
               );
             }
 
+            // ── Friends list ──
             return (
-              <>
-              <div style={{ width:'100%', display:'flex', flexDirection:'column', gap:'10px' }}>
-                {opponents.map(opp => {
-                  const challs    = groups[opp];
-                  const completed = challs.filter(c => c.status === 'completed' || c.status === 'returned');
-                  const pending   = challs.filter(c => c.status === 'pending' || c.status === 'outgoing');
-                  let myWins = 0, theirWins = 0;
-                  completed.forEach(c => {
-                    const mySc = c.outgoing ? c.senderScore   : c.myScore;
-                    const thSc = c.outgoing ? c.receiverScore : c.senderScore;
-                    const thN  = c.outgoing ? (c.receiverName || opp) : opp;
-                    const w = getH2HWinner(mySc, thSc, userName || 'Me', thN);
-                    if (w === (userName || 'Me')) myWins++;
-                    else if (w === thN) theirWins++;
-                  });
-                  const isAwaiting = opp.startsWith('⏳');
-                  return (
-                    <button key={opp} onClick={() => { setRivalryView(opp); setRivalryTab(pending.length > 0 ? 'open' : 'completed'); }} style={{
-                      width:'100%', background:'rgba(0,30,15,0.8)',
-                      border:'1px solid rgba(255,255,255,0.1)', borderRadius:'14px', padding:'16px',
-                      display:'flex', alignItems:'center', justifyContent:'space-between',
-                      cursor:'pointer', textAlign:'left', fontFamily:"'Outfit',system-ui,sans-serif",
-                    }}>
-                      <div>
-                        <div style={{ fontSize:'0.95rem', fontWeight:800, color: isAwaiting ? 'rgba(210,240,255,0.5)' : '#fff', marginBottom:'4px' }}>
-                          {isAwaiting ? opp : `${userName || 'Me'} vs ${opp}`}
-                        </div>
-                        <div style={{ fontSize:'0.72rem', color:'rgba(210,240,255,0.5)' }}>
-                          {completed.length} completed · {pending.length} open
-                        </div>
-                      </div>
-                      <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
-                        {completed.length > 0 && (
-                          <div style={{ textAlign:'center' }}>
-                            <div style={{ fontSize:'1.4rem', fontWeight:900, color: myWins > theirWins ? '#22c55e' : myWins < theirWins ? '#f87171' : '#fbbf24', lineHeight:1 }}>
-                              {myWins}–{theirWins}
+              <div style={{ width:'100%' }}>
+                {/* Add friend button */}
+                <button onClick={async () => {
+                  let link = await generateFriendRequestLink();
+                  // Fallback for local dev or API failure
+                  if (!link) {
+                    alert('Friend request API unavailable. Make sure the app is deployed to Vercel.');
+                    return;
+                  }
+                  const text = `${myName} wants to be your Crickle friend 🏏 — accept here:\n${link}`;
+                  if (IS_NATIVE) { try { await Share.share({ title:'Crickle Friend Request', text, dialogTitle:'Share friend request' }); } catch {} }
+                  else if (navigator.share) { try { await navigator.share({ text }); } catch {} }
+                  else { try { await navigator.clipboard.writeText(text); alert('Link copied! Share it with your friend.'); } catch {} }
+                }} style={{
+                  width:'100%', padding:'14px', marginBottom:'16px',
+                  background:'linear-gradient(135deg,#22c55e,#16a34a)', border:'none',
+                  borderRadius:'12px', color:'#fff', fontWeight:900, fontSize:'0.95rem',
+                  cursor:'pointer', fontFamily:"'Outfit',system-ui,sans-serif",
+                  boxShadow:'0 4px 20px rgba(34,197,94,0.25)',
+                }}>👤 Add a Friend</button>
+
+                {friends.length === 0 ? (
+                  <div style={{ textAlign:'center', padding:'30px 20px', color:'rgba(255,255,255,0.4)' }}>
+                    <div style={{ fontSize:'2rem', marginBottom:'8px' }}>🤝</div>
+                    <p style={{ fontSize:'0.85rem' }}>No friends yet. Share an invite link above!</p>
+                  </div>
+                ) : (
+                  <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
+                    {friends.map(f => {
+                      const oppName = f.user_a_uid === myUid ? f.user_b_name : f.user_a_name;
+                      const myWins  = f.user_a_uid === myUid ? f.a_wins : f.b_wins;
+                      const thWins  = f.user_a_uid === myUid ? f.b_wins : f.a_wins;
+                      const pending = h2hChallenges.filter(c => c.friendship_id === f.id && c.status === 'open' && (
+                        (c.sender_uid   === myUid && !c.sender_score) ||
+                        (c.receiver_uid === myUid && !c.receiver_score)
+                      )).length;
+                      return (
+                        <button key={f.id} onClick={() => setH2hRivalryView(f.id)} style={{
+                          width:'100%', background:'rgba(0,30,15,0.8)',
+                          border:`1px solid ${pending > 0 ? 'rgba(251,191,36,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                          borderRadius:'14px', padding:'16px',
+                          display:'flex', alignItems:'center', justifyContent:'space-between',
+                          cursor:'pointer', fontFamily:"'Outfit',system-ui,sans-serif",
+                        }}>
+                          <div style={{ textAlign:'left' }}>
+                            <div style={{ fontSize:'0.95rem', fontWeight:800, color:'#fff', marginBottom:'3px' }}>
+                              {myName} vs {oppName}
                             </div>
-                            <div style={{ fontSize:'0.6rem', color:'rgba(255,255,255,0.3)', fontWeight:700, textTransform:'uppercase' }}>Score</div>
+                            <div style={{ fontSize:'0.72rem', color:'rgba(210,240,255,0.5)' }}>
+                              {myWins + thWins === 0 ? 'No games played yet' : `${myWins + thWins} game${myWins + thWins !== 1 ? 's' : ''} played`}
+                            </div>
                           </div>
-                        )}
-                        {pending.length > 0 && (
-                          <span style={{
-                            background:'rgba(251,191,36,0.2)', border:'1px solid rgba(251,191,36,0.4)',
-                            color:'#fbbf24', borderRadius:'6px', padding:'3px 8px', fontSize:'0.65rem', fontWeight:700,
-                          }}>{pending.length} open</span>
-                        )}
-                        <span style={{ color:'rgba(255,255,255,0.3)', fontSize:'1rem' }}>→</span>
-                      </div>
-                    </button>
-                  );
-                })}
+                          <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                            {(myWins + thWins) > 0 && (
+                              <div style={{ fontSize:'1.4rem', fontWeight:900, lineHeight:1, color: myWins > thWins ? '#22c55e' : myWins < thWins ? '#f87171' : '#fbbf24' }}>
+                                {myWins}–{thWins}
+                              </div>
+                            )}
+                            {pending > 0 && (
+                              <span style={{ background:'rgba(251,191,36,0.2)', border:'1px solid rgba(251,191,36,0.4)', color:'#fbbf24', borderRadius:'6px', padding:'3px 8px', fontSize:'0.65rem', fontWeight:700 }}>
+                                {pending} pending
+                              </span>
+                            )}
+                            <span style={{ color:'rgba(255,255,255,0.3)' }}>→</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <button onClick={handleSignOut} style={{
+                  marginTop:'20px', background:'transparent', border:'none',
+                  color:'rgba(210,240,255,0.3)', fontSize:'0.72rem', cursor:'pointer',
+                  width:'100%', textAlign:'center', padding:'6px',
+                }}>Signed in as {authUser.displayName} · Sign out</button>
               </div>
-              <button onClick={handleSignOut} style={{
-                marginTop:'16px', background:'transparent', border:'none',
-                color:'rgba(210,240,255,0.3)', fontSize:'0.72rem', cursor:'pointer',
-                width:'100%', textAlign:'center', padding:'6px',
-              }}>Signed in as {authUser.displayName} · Sign out</button>
-              </>
             );
           })()}
           {/* ── STATS tab ── */}
@@ -1722,115 +1924,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Web Challenge Interceptor Modal */}
-      {webChallengePrompt && !IS_NATIVE && (() => {
-        const isAndroid = /android/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '');
-        const isIOS = /iphone|ipad|ipod/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '');
-        const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.crickleapp';
-        const TESTER_URL = 'https://play.google.com/apps/testing/com.crickleapp';
-        const intentUrl = `intent://open?c=${webChallengePrompt.code}#Intent;scheme=crickle;package=com.crickleapp;S.browser_fallback_url=${encodeURIComponent(TESTER_URL)};end`;
-        const senderResult = formatScore(webChallengePrompt.senderScore);
-
-        // If not signed in, require Google sign-in first
-        if (!authUser) {
-          return (
-            <div style={{ position:'fixed', inset:0, zIndex:2000, background:'rgba(0,10,5,0.97)', display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }}>
-              <div style={{ background:'rgba(0,30,10,0.97)', border:'1px solid rgba(34,197,94,0.4)', borderRadius:'24px', padding:'28px 24px', textAlign:'center', maxWidth:'340px', width:'100%' }}>
-                <div style={{ fontSize:'2rem', marginBottom:'12px' }}>🏏</div>
-                <div style={{ fontSize:'1rem', fontWeight:900, color:'#fff', marginBottom:'6px' }}>{webChallengePrompt.sender} challenged you!</div>
-                <div style={{ fontSize:'0.78rem', color:'rgba(210,240,255,0.55)', marginBottom:'20px' }}>
-                  They <span style={{ color:'#fbbf24', fontWeight:700 }}>{senderResult}</span>. Sign in to play and track your rivalry.
-                </div>
-                <button
-                  onPointerDown={handleGoogleSignIn}
-                  disabled={signingIn}
-                  style={{
-                    width:'100%', padding:'14px',
-                    background: signingIn ? 'rgba(255,255,255,0.7)' : '#fff',
-                    border:'none', borderRadius:'12px',
-                    color:'#1a1a1a', fontWeight:800, fontSize:'0.95rem',
-                    cursor: signingIn ? 'default' : 'pointer',
-                    fontFamily:"'Outfit',system-ui,sans-serif",
-                    display:'flex', alignItems:'center', justifyContent:'center', gap:'10px',
-                    touchAction:'manipulation', userSelect:'none',
-                  }}
-                >
-                  {signingIn ? <span>Signing in…</span> : (
-                    <>
-                      <svg width="20" height="20" viewBox="0 0 24 24" style={{ pointerEvents:'none', flexShrink:0 }}><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                      <span style={{ pointerEvents:'none' }}>Sign in with Google</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          );
-        }
-
-        return (
-          <div style={{ position:'fixed', inset:0, zIndex:2000, background:'rgba(0,10,5,0.97)', display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }}>
-            <div style={{ background:'rgba(0,30,10,0.97)', border:'1px solid rgba(34,197,94,0.4)', borderRadius:'24px', padding:'28px 24px', textAlign:'center', maxWidth:'340px', width:'100%', boxShadow:'0 20px 60px rgba(0,0,0,0.8)' }}>
-              <div style={{
-                background:'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(0,20,8,0.9) 100%)',
-                border:'1px solid rgba(34,197,94,0.3)', borderRadius:'16px',
-                padding:'20px 16px', marginBottom:'20px',
-              }}>
-                <div style={{ fontSize:'2.2rem', marginBottom:'8px' }}>🏏</div>
-                <div style={{ fontSize:'1rem', fontWeight:900, color:'#fff', marginBottom:'4px' }}>
-                  {webChallengePrompt.sender} challenged you!
-                </div>
-                <div style={{ fontSize:'0.78rem', color:'rgba(210,240,255,0.55)', marginBottom:'12px' }}>
-                  They <span style={{ color:'#fbbf24', fontWeight:800 }}>{senderResult}</span>. Can you beat that?
-                </div>
-                <div style={{
-                  display:'inline-block', background:'rgba(34,197,94,0.15)', border:'1px solid rgba(34,197,94,0.35)',
-                  borderRadius:'8px', padding:'4px 14px', fontSize:'0.72rem', fontWeight:700, color:'#86efac', letterSpacing:'0.08em',
-                }}>
-                  {webChallengePrompt.mode} {webChallengePrompt.sourceMode ? `(${webChallengePrompt.sourceMode})` : ''} · CRICKLE H2H
-                </div>
-              </div>
-
-              <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
-                {isAndroid && (
-                  <a href={intentUrl} style={{
-                    background:'linear-gradient(135deg,#22c55e,#16a34a)', color:'#fff', padding:'14px',
-                    borderRadius:'12px', fontWeight:900, textDecoration:'none', fontSize:'0.95rem', display:'block',
-                  }}>📱 Open in App</a>
-                )}
-                <button onClick={() => {
-                  playSavedChallenge(webChallengePrompt);
-                  setWebChallengePrompt(null);
-                  // Register as receiver on server
-                  if (authUser) {
-                    postChallengeToServer({
-                      code: webChallengePrompt.code,
-                      mode: webChallengePrompt.mode,
-                      target_player: webChallengePrompt.targetPlayer,
-                      sender_uid: webChallengePrompt.senderScore?.uid || 'unknown',
-                      sender_name: webChallengePrompt.sender,
-                      sender_score: webChallengePrompt.senderScore,
-                      receiver_uid: authUser.uid,
-                      receiver_name: userName || authUser.displayName,
-                    });
-                  }
-                }} style={{
-                  background: isAndroid ? 'rgba(255,255,255,0.08)' : 'linear-gradient(135deg,#22c55e,#16a34a)',
-                  color:'#fff', padding:'14px', borderRadius:'12px',
-                  border: isAndroid ? '1px solid rgba(255,255,255,0.15)' : 'none',
-                  fontWeight:800, cursor:'pointer', fontSize:'0.95rem',
-                  fontFamily:"'Outfit',system-ui,sans-serif",
-                }}>🌐 Play in Browser</button>
-                {isAndroid && (
-                  <a href={TESTER_URL} target="_blank" rel="noreferrer" style={{
-                    color:'rgba(210,240,255,0.4)', fontSize:'0.75rem', textDecoration:'none', padding:'6px', display:'block',
-                  }}>Don't have the app? Join the beta →</a>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
       {/* Confetti canvas */}
       {showConfetti && (
         <canvas ref={confettiRef} style={{
@@ -1906,44 +1999,23 @@ export default function App() {
               {game.hintsUsed > 0 ? ` · ${game.hintsUsed} hint${game.hintsUsed > 1 ? 's' : ''}` : ' · No hints 🎯'}
             </div>
 
-            {/* H2H Scoreboard Comparison */}
-            {activeChallenge && (
+            {/* H2H pending result note — shown immediately, full result visible in H2H tab once opponent plays */}
+            {game.isH2H && activeH2HChallenge && (
               <div style={{
-                background:'rgba(0,0,0,0.4)', borderRadius:'12px',
-                border:'1px solid rgba(255,255,255,0.1)', padding:'14px',
-                marginBottom:'24px',
+                background:'rgba(34,197,94,0.12)', border:'1px solid rgba(34,197,94,0.3)',
+                borderRadius:'12px', padding:'14px', marginBottom:'24px', textAlign:'center',
               }}>
-                <div style={{ fontSize:'0.68rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', color:'rgba(210,240,255,0.4)', marginBottom:'10px' }}>
-                  H2H Result · {displayMode} {activeChallenge?.sourceMode ? `(${activeChallenge.sourceMode})` : ''}
+                <div style={{ fontSize:'0.8rem', fontWeight:700, color:'rgba(34,197,94,0.9)', marginBottom:'4px' }}>
+                  ⚔️ Score submitted — {displayMode} · {game.guesses.length} {game.guesses.length === 1 ? 'try' : 'tries'} · {game.hintsUsed} hint{game.hintsUsed !== 1 ? 's' : ''}
                 </div>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                  <div style={{ textAlign:'left' }}>
-                    <div style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.5)', textTransform:'uppercase', marginBottom:'3px' }}>{activeChallenge.sender}</div>
-                    <div style={{ fontSize:'1rem', fontWeight:900, color: activeChallenge.senderScore?.won ? '#fbbf24' : '#ef4444' }}>
-                      {formatScore(activeChallenge.senderScore)}
-                    </div>
-                  </div>
-                  <div style={{ fontSize:'0.75rem', fontWeight:900, color:'rgba(34,197,94,0.7)', padding:'0 8px' }}>VS</div>
-                  <div style={{ textAlign:'right' }}>
-                    <div style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.5)', textTransform:'uppercase', marginBottom:'3px' }}>You</div>
-                    <div style={{ fontSize:'1.2rem', fontWeight:900, color:'#22c55e' }}>
-                      {game.guesses.length} {game.guesses.length === 1 ? 'try' : 'tries'}
-                    </div>
-                    <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.35)', marginTop:'2px' }}>{game.hintsUsed} hints</div>
-                  </div>
+                <div style={{ fontSize:'0.72rem', color:'rgba(210,240,255,0.5)' }}>
+                  Result revealed when your opponent plays.
                 </div>
-                {(() => {
-                  const myScore = { won: true, tries: game.guesses.length, hints: game.hintsUsed };
-                  const winner = getH2HWinner(myScore, activeChallenge.senderScore, 'you', activeChallenge.sender);
-                  if (winner === 'you') return <div style={{ marginTop:'10px', fontSize:'0.75rem', color:'#86efac', fontWeight:700 }}>🏆 You win!</div>;
-                  if (winner === 'draw') return <div style={{ marginTop:'10px', fontSize:'0.75rem', color:'#fbbf24', fontWeight:700 }}>🤝 It's a draw.</div>;
-                  return <div style={{ marginTop:'10px', fontSize:'0.75rem', color:'#f87171', fontWeight:700 }}>❌ {activeChallenge.sender} wins this one.</div>;
-                })()}
               </div>
             )}
 
             <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
-              {!game.isEasy && (
+              {!game.isEasy && !game.isH2H && (
                 <button onClick={handleGameShare} style={{
                   width:'100%', padding:'14px',
                   background:'linear-gradient(135deg,#22c55e,#16a34a)',
@@ -1952,6 +2024,15 @@ export default function App() {
                   boxShadow:'0 4px 20px rgba(34,197,94,0.4)',
                   fontFamily:"'Outfit',system-ui,sans-serif",
                 }}>📤 Share</button>
+              )}
+              {game.isH2H && (
+                <button onClick={() => { setScreen('menu'); setMenuTab('challenges'); patchGame({ status: 'won_dismissed' }); }} style={{
+                  width:'100%', padding:'14px',
+                  background:'linear-gradient(135deg,#22c55e,#16a34a)',
+                  border:'none', borderRadius:'12px', color:'#fff',
+                  fontWeight:900, fontSize:'0.95rem', cursor:'pointer',
+                  fontFamily:"'Outfit',system-ui,sans-serif",
+                }}>⚔️ Back to H2H</button>
               )}
               {(activeTab === 'endless' || activeTab === 'easy') && (
                 <button onClick={() => { resetGame(); }} style={{
@@ -1976,12 +2057,10 @@ export default function App() {
       {game.status === 'lost' && (
         <div style={{
           width:'100%', maxWidth:'480px',
-          background:'rgba(185,28,28,0.12)',
-          border:'1px solid rgba(239,68,68,0.3)',
-          borderRadius:'14px', padding:'18px 20px',
-          marginBottom:'20px',
+          background:'rgba(185,28,28,0.12)', border:'1px solid rgba(239,68,68,0.3)',
+          borderRadius:'14px', padding:'18px 20px', marginBottom:'20px',
         }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: activeChallenge ? '12px' : 0 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
             <div>
               <div style={{ fontWeight:800, fontSize:'0.95rem', color:'#fff' }}>💀 Better luck next time.</div>
               <div style={{ fontSize:'0.78rem', color:'rgba(210,240,255,0.6)', marginTop:2 }}>
@@ -1989,42 +2068,21 @@ export default function App() {
               </div>
             </div>
             <div style={{ display:'flex', gap:8 }}>
-              {!game.isEasy && (
+              {!game.isEasy && !game.isH2H && (
                 <button onClick={handleGameShare} style={{
                   background:'rgba(34,197,94,0.2)', border:'1px solid rgba(34,197,94,0.4)',
-                  borderRadius:'8px', padding:'8px 14px',
-                  color:'#22c55e', fontWeight:800, fontSize:'0.8rem', cursor:'pointer',
+                  borderRadius:'8px', padding:'8px 14px', color:'#22c55e', fontWeight:800, fontSize:'0.8rem', cursor:'pointer',
                 }}>📤 Share</button>
               )}
-              {(activeTab === 'endless' || activeTab === 'easy') && (
-                <button onClick={() => resetGame()} style={{
+              {(activeTab === 'endless' || activeTab === 'easy' || activeTab === 'h2h') && (
+                <button onClick={() => { if (activeTab === 'h2h') { setScreen('menu'); setMenuTab('challenges'); } else resetGame(); }} style={{
                   background:'#22c55e', color:'#fff', border:'none',
-                  borderRadius:'8px', padding:'8px 14px',
-                  fontWeight:800, cursor:'pointer', fontSize:'0.8rem',
+                  borderRadius:'8px', padding:'8px 14px', fontWeight:800, cursor:'pointer', fontSize:'0.8rem',
                   boxShadow:'0 0 12px rgba(34,197,94,0.3)',
-                }}>New Game</button>
+                }}>{activeTab === 'h2h' ? 'Back to H2H' : 'New Game'}</button>
               )}
             </div>
           </div>
-          {activeChallenge && (() => {
-            const myScore = { won: false, tries: game.guesses.length, hints: game.hintsUsed };
-            const winner = getH2HWinner(myScore, activeChallenge.senderScore, 'you', activeChallenge.sender);
-            const theirResult = activeChallenge.senderScore?.won
-              ? `${activeChallenge.senderScore.tries} tries · ${activeChallenge.senderScore.hints ?? 0} hints`
-              : 'gave up';
-            return (
-              <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', paddingTop:'10px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <div style={{ fontSize:'0.72rem', color:'rgba(210,240,255,0.5)' }}>
-                  {activeChallenge.sender}: <span style={{ color:'#fff', fontWeight:700 }}>{theirResult}</span>
-                </div>
-                <div style={{ fontSize:'0.72rem', fontWeight:800,
-                  color: winner === 'draw' ? '#fbbf24' : winner === activeChallenge.sender ? '#f87171' : '#86efac',
-                }}>
-                  {winner === 'draw' ? '🤝 Draw' : winner === activeChallenge.sender ? `${activeChallenge.sender} wins` : '🏆 You win'}
-                </div>
-              </div>
-            );
-          })()}
         </div>
       )}
 
@@ -2032,11 +2090,9 @@ export default function App() {
       {game.status === 'won_dismissed' && (
         <div style={{
           width:'100%', maxWidth:'480px',
-          background:'rgba(22,163,74,0.12)',
-          border:'1px solid rgba(34,197,94,0.3)',
+          background:'rgba(22,163,74,0.12)', border:'1px solid rgba(34,197,94,0.3)',
           borderRadius:'14px', padding:'14px 20px',
-          display:'flex', alignItems:'center', justifyContent:'space-between',
-          marginBottom:'20px',
+          display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'20px',
         }}>
           <div>
             <div style={{ fontWeight:800, fontSize:'0.9rem', color:'#22c55e' }}>✅ {game.target.name}</div>
@@ -2045,19 +2101,23 @@ export default function App() {
             </div>
           </div>
           <div style={{ display:'flex', gap:8 }}>
-            {!game.isEasy && (
+            {!game.isEasy && !game.isH2H && (
               <button onClick={handleGameShare} style={{
                 background:'rgba(34,197,94,0.2)', border:'1px solid rgba(34,197,94,0.4)',
-                borderRadius:'8px', padding:'8px 14px',
-                color:'#22c55e', fontWeight:800, fontSize:'0.8rem', cursor:'pointer',
+                borderRadius:'8px', padding:'8px 14px', color:'#22c55e', fontWeight:800, fontSize:'0.8rem', cursor:'pointer',
               }}>📤 Share</button>
             )}
             {(activeTab === 'endless' || activeTab === 'easy') && (
               <button onClick={() => resetGame()} style={{
                 background:'#22c55e', color:'#fff', border:'none',
-                borderRadius:'8px', padding:'8px 14px',
-                fontWeight:800, cursor:'pointer', fontSize:'0.8rem',
+                borderRadius:'8px', padding:'8px 14px', fontWeight:800, cursor:'pointer', fontSize:'0.8rem',
               }}>New Game</button>
+            )}
+            {activeTab === 'h2h' && (
+              <button onClick={() => { setScreen('menu'); setMenuTab('challenges'); }} style={{
+                background:'#22c55e', color:'#fff', border:'none',
+                borderRadius:'8px', padding:'8px 14px', fontWeight:800, cursor:'pointer', fontSize:'0.8rem',
+              }}>Back to H2H</button>
             )}
           </div>
         </div>
@@ -2071,7 +2131,9 @@ export default function App() {
           marginBottom:'8px',
         }}>
           <span style={{ color:'rgba(210,240,255,0.92)', fontSize:'0.8rem', fontWeight:600 }}>
-            {activeChallenge ? `Beat ${activeChallenge.sender}'s Score` : `Guess the ${displayMode} Cricketer`}
+            {game.isH2H
+              ? `H2H vs ${activeH2HChallenge?.sender_uid === authUser?.uid ? activeH2HChallenge?.receiver_name : activeH2HChallenge?.sender_name || 'Friend'}`
+              : `Guess the ${displayMode} Cricketer`}
           </span>
           <span style={{
             color: game.guesses.length >= 6 ? '#f87171' : '#7dd3fc',
@@ -2111,7 +2173,9 @@ export default function App() {
       <div style={{ position:'relative', width:'100%', maxWidth:'480px', marginBottom:'12px', zIndex:30 }}>
         <input
           type="text"
-          placeholder={game.status !== 'playing' ? 'Game over — return to menu' : 'Search for a player…'}
+          placeholder={game.status !== 'playing'
+            ? (game.isDaily ? 'Puzzle complete. Come back tomorrow!' : 'Game over')
+            : 'Search for a player…'}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           disabled={game.status !== 'playing'}
@@ -2228,7 +2292,12 @@ export default function App() {
                       borderRadius:'10px', padding:'10px 12px', marginBottom:'10px',
                     }}>
                       <p style={{ margin:'0 0 8px', fontSize:'0.78rem', fontWeight:700, color:'#fbbf24', lineHeight:1.4 }}>
-                        ⚠️ You have a {game.isDaily ? stats.dailyHintlessStreak : stats.hintlessStreak}-game hintless streak. Using a hint will break it.
+                        {(() => {
+                          const streak = game.isDaily ? (stats.dailyHintlessStreak || 0) : (stats.hintlessStreak || 0);
+                          return streak > 0
+                            ? `⚠️ Using a hint will break your ${streak}-game hintless streak.`
+                            : `💡 Using a hint means no hintless bonus this game.`;
+                        })()}
                       </p>
                       <div style={{ display:'flex', gap:'8px' }}>
                         <button onClick={() => { setShowHintWarning(false); requestHint(); }} style={{
@@ -2242,7 +2311,7 @@ export default function App() {
                           border:'1px solid rgba(255,255,255,0.15)', borderRadius:'7px',
                           color:'rgba(210,240,255,0.6)', fontWeight:700, fontSize:'0.78rem', cursor:'pointer',
                           fontFamily:"'Outfit',system-ui,sans-serif",
-                        }}>Keep streak</button>
+                        }}>Keep going</button>
                       </div>
                     </div>
                   )}
