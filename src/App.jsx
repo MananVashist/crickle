@@ -750,12 +750,12 @@ export default function App() {
     let text;
     if (game.isDaily) {
       text = won
-        ? `Crickle Daily 🏏 — guessed today's ${displayMode} player in ${tries}/${MAX_GUESSES} with ${hintsStr}.\n${BASE}`
-        : `Crickle Daily 🏏 — couldn't get today's ${displayMode} player. Give it a shot!\n${BASE}`;
+        ? `Crickle Daily 🏏 — Completed today's ${displayMode} challenge in ${tries}/${MAX_GUESSES} guesses with ${hintsStr}. Can you do better?\n${BASE}`
+        : `Crickle Daily 🏏 — Today's ${displayMode} challenge got me. Give it a shot!\n${BASE}`;
     } else {
       text = won
-        ? `Crickle 🏏 — guessed a ${displayMode} player in ${tries}/${MAX_GUESSES} with ${hintsStr}.\n${BASE}`
-        : `Crickle 🏏 — the cricket Wordle. Give it a shot!\n${BASE}`;
+        ? `Crickle 🏏 — Guessed ${game.target.name} in ${tries}/${MAX_GUESSES} guesses with ${hintsStr}. I guess I'm good at this game 😏\n${BASE}`
+        : `Crickle 🏏 — Couldn't get this one. The ${displayMode} cricket Wordle, give it a shot!\n${BASE}`;
     }
 
     if (IS_NATIVE) {
