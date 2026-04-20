@@ -19,10 +19,12 @@ const FIREBASE_CONFIG = {
 const firebaseApp = initFirebase(FIREBASE_CONFIG);
 const firebaseAuth = getAuth(firebaseApp);
 
-const H2H_API             = '/api/h2h/challenge';
-const FRIENDS_API         = '/api/h2h/friends';
-const CHALLENGE_NEW_API   = '/api/h2h/challenge-new';
-const CHALLENGE_SUBMIT_API = '/api/h2h/challenge-submit';
+const API_BASE = typeof window !== 'undefined' && window?.Capacitor?.isNativePlatform?.()
+  ? 'https://crickle-game.vercel.app'
+  : '';
+const FRIENDS_API          = `${API_BASE}/api/h2h/friends`;
+const CHALLENGE_NEW_API    = `${API_BASE}/api/h2h/challenge-new`;
+const CHALLENGE_SUBMIT_API = `${API_BASE}/api/h2h/challenge-submit`;
 
 // @ts-ignore
 const _googleFont = (() => {
@@ -174,23 +176,6 @@ const updateStats = (prev, { won, guesses, hintsUsed, isDaily }) => {
   return next;
 };
 
-// ── H2H Obfuscation ──
-const encodeH2H = (name, tries, hints, won) => btoa(encodeURIComponent(`2:${name}:${tries}:${hints}:${won?1:0}`));
-const decodeH2H = (str) => {
-  try {
-    const parts = decodeURIComponent(atob(str)).split(':');
-    if (parts[0] === '2') {
-      const [, name, tries, hints, won] = parts;
-      return { name, tries: parseInt(tries, 10), hints: parseInt(hints, 10), won: won === '1' };
-    }
-    if (parts[0] === '1') {
-      const [, name, tries, won] = parts;
-      return { name, tries: parseInt(tries, 10), hints: 0, won: won === '1' };
-    }
-    return null;
-  } catch { return null; }
-};
-
 // won > gave up. Among both won: fewer hints > fewer tries. Both gave up = draw.
 const getH2HWinner = (myScore, theirScore, myName, theirName) => {
   if (!myScore || !theirScore) return null;
@@ -214,13 +199,6 @@ const formatScore = (score) => {
   const h = score.hints ?? 0;
   if (t === 0) return 'gave up';
   return `gave up (${t} ${t === 1 ? 'try' : 'tries'} · ${h} hint${h !== 1 ? 's' : ''})`;
-};
-const encodeChallenge = (mode, playerName) => {
-  const pool = POOL[mode];
-  const idx  = pool.findIndex(p => p.name === playerName);
-  if (idx < 0) return null;
-  const prefix = mode === 'Test' ? 'TE' : mode === 'ODI' ? 'OD' : 'T2';
-  return prefix + String(idx).padStart(4, '0');
 };
 const decodeChallenge = (code) => {
   if (!code || code.length < 6) return null;
@@ -430,15 +408,8 @@ export default function App() {
   const adListenerRef = useRef(null);
 
   const [userName, setUserName] = useState(() => { try { return localStorage.getItem('crickle_username') || ''; } catch { return ''; } });
-  const [savedChallenges, setSavedChallenges] = useState(() => { try { return JSON.parse(localStorage.getItem('crickle_challenges') || '[]'); } catch { return []; } });
-  const [showNamePrompt, setShowNamePrompt] = useState(false);
-  const [activeChallenge, setActiveChallenge] = useState(null);
-  const [webChallengePrompt, setWebChallengePrompt] = useState(null);
-  const [rivalryView, setRivalryView] = useState(null);
-  const [rivalryTab, setRivalryTab] = useState('open');
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [serverChallenges, setServerChallenges] = useState([]);
 
   const dMode = ['Test', 'ODI', 'T20'][getDaysSinceEpoch() % 3];
   const displayMode = activeTab === 'daily' ? dMode
@@ -462,35 +433,6 @@ export default function App() {
   }, []);
 
   // ── Firebase Auth ──
-  const fetchServerChallenges = useCallback(async (uid) => {
-    try {
-      const res = await fetch(`${H2H_API}?uid=${encodeURIComponent(uid)}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (Array.isArray(data)) setServerChallenges(data);
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(firebaseAuth, async (user) => {
-      setAuthUser(user);
-      setAuthLoading(false);
-      if (user) {
-        if (!localStorage.getItem('crickle_username') && user.displayName) {
-          setUserName(user.displayName);
-          localStorage.setItem('crickle_username', user.displayName);
-        }
-        fetchServerChallenges(user.uid);
-      } else {
-        setServerChallenges([]);
-      }
-    });
-    // Handle redirect result on page load (web sign-in)
-    if (!IS_NATIVE) {
-      getRedirectResult(firebaseAuth).catch(() => {});
-    }
-    return () => unsub();
-  }, [fetchServerChallenges]);
 
   const [signingIn, setSigningIn]   = useState(false);
 
@@ -518,14 +460,32 @@ export default function App() {
     } catch {}
   }, []);
 
+  useEffect(() => {
+    const unsub = onAuthStateChanged(firebaseAuth, async (user) => {
+      setAuthUser(user);
+      setAuthLoading(false);
+      if (user) {
+        if (!localStorage.getItem('crickle_username') && user.displayName) {
+          setUserName(user.displayName);
+          localStorage.setItem('crickle_username', user.displayName);
+        }
+        fetchFriends(user.uid);
+        fetchH2HChallenges(user.uid);
+      }
+    });
+    if (!IS_NATIVE) {
+      getRedirectResult(firebaseAuth).catch(() => {});
+    }
+    return () => unsub();
+  }, [fetchFriends, fetchH2HChallenges]);
+
   // Refresh H2H data when tab opened
   useEffect(() => {
     if (menuTab === 'challenges' && authUser) {
       fetchFriends(authUser.uid);
       fetchH2HChallenges(authUser.uid);
-      fetchServerChallenges(authUser.uid);
     }
-  }, [menuTab, authUser, fetchFriends, fetchH2HChallenges, fetchServerChallenges]);
+  }, [menuTab, authUser, fetchFriends, fetchH2HChallenges]);
 
   // Supabase realtime — instant updates when challenges/friendships change
   // Requires VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env
@@ -597,20 +557,9 @@ export default function App() {
 
   const handleSignOut = async () => {
     await firebaseSignOut(firebaseAuth);
-    setServerChallenges([]);
+    setFriends([]);
+    setH2hChallenges([]);
   };
-
-  const postChallengeToServer = useCallback(async (challengeData) => {
-    if (!authUser) return;
-    try {
-      await fetch(H2H_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(challengeData),
-      });
-      fetchServerChallenges(authUser.uid);
-    } catch {}
-  }, [authUser, fetchServerChallenges]);
 
   const patchGame = useCallback((patch) => {
     setGames((prev) => {
@@ -631,9 +580,6 @@ export default function App() {
     setSearch('');
   }, [activeTab, mode, dMode]);
 
-  // Sync storage
-  useEffect(() => { try { localStorage.setItem('crickle_challenges', JSON.stringify(savedChallenges)); } catch {} }, [savedChallenges]);
-  
   // Persist endless game states (so in-progress guesses survive app close)
   useEffect(() => {
     try {
@@ -704,113 +650,10 @@ export default function App() {
       .catch(() => {});
   }, [pendingFriendReq?.token]);
 
-  // Accept pending friend request once authUser is available
-  useEffect(() => {
-    if (!authUser || !pendingFriendReq) return;
-    // Don't auto-accept — let user see the card and click Accept
-  }, [authUser, pendingFriendReq]);
-
   const handleDailyStart = () => {
     setActiveTab('daily');
     setScreen('game');
   };
-
-  // Deep link parsing — old ?c= challenge links (kept for backwards compat)
-  useEffect(() => {
-    const tryChallenge = (urlString) => {
-      try {
-        const search = urlString.includes('?') ? urlString.slice(urlString.indexOf('?')) : urlString;
-        const params = new URLSearchParams(search);
-        const code = params.get('c');
-        const xParam = params.get('x');
-        const mParam = params.get('m');
-        const sourceMode = mParam === 'd' ? 'Daily' : mParam === 'e' ? 'Endless' : '';
-        if (!code) return;
-
-        const decoded = decodeChallenge(code);
-        if (!decoded) return;
-        const { mode: cMode, player } = decoded;
-
-        let incomingScore = null;
-        let incomingName = 'A friend';
-        if (xParam) {
-          incomingScore = decodeH2H(xParam);
-          if (incomingScore) incomingName = incomingScore.name;
-        }
-
-        // Clear URL params so refresh doesn't re-trigger
-        if (!IS_NATIVE && typeof window !== 'undefined' && window.location.search) {
-          window.history.replaceState({}, '', window.location.pathname);
-        }
-
-        setSavedChallenges(prev => {
-          // Check if this is a return result for an outgoing challenge I sent
-          const outgoing = prev.find(c => c.code === code && c.outgoing === true);
-          if (outgoing && incomingName !== outgoing.sender) {
-            // This is Dhruv responding to Manan's challenge — update receiver score
-            return prev.map(c =>
-              c.id === outgoing.id
-                ? { ...c, status: 'returned', receiverName: incomingName, receiverScore: incomingScore }
-                : c
-            );
-            // No popup needed — it's just a stats update
-          }
-
-          // Incoming challenge — check not already added or already completed
-          const existing = prev.find(c => c.code === code && c.sender === incomingName);
-          if (existing) {
-            // Don't re-add, but if pending show prompt again on native
-            // On web: don't re-show if already completed
-            if (existing.status === 'completed' || existing.status === 'pending') return prev;
-            return prev;
-          }
-
-          const newChall = {
-            id: Date.now(), sender: incomingName, senderScore: incomingScore,
-            mode: cMode, code, status: 'pending', targetPlayer: player.name,
-            outgoing: false,
-            sourceMode,
-          };
-          return [newChall, ...prev];
-        });
-
-        // Show prompt only for new incoming challenges (not return results, not already completed)
-        setSavedChallenges(prev => {
-          const outgoing = prev.find(c => c.code === code && c.outgoing === true);
-          if (outgoing) return prev; // return result, no prompt
-
-          const existing = prev.find(c => c.code === code && c.sender === incomingName);
-          if (!existing || existing.status === 'completed') return prev;
-
-          if (!IS_NATIVE) {
-            setWebChallengePrompt(existing);
-            setScreen('game');
-          } else {
-            setMenuTab('challenges');
-            setScreen('menu');
-          }
-          return prev;
-        });
-
-      } catch {}
-    };
-
-    if (typeof window !== 'undefined' && window.location.search) {
-      tryChallenge(window.location.search);
-    }
-
-    let listener;
-    if (IS_NATIVE) {
-      CapApp.getLaunchUrl().then((result) => {
-        if (result?.url) tryChallenge(result.url);
-      }).catch(() => {});
-      CapApp.addListener('appUrlOpen', (data) => {
-        if (data?.url) tryChallenge(data.url);
-      }).then((l) => { listener = l; }).catch(() => {});
-    }
-
-    return () => { listener?.remove(); };
-  }, []);
 
   // ── Native Android back button ──
   useEffect(() => {
@@ -896,141 +739,36 @@ export default function App() {
     }
   }, [patchGame]);
 
-  const [showShareAuthPrompt, setShowShareAuthPrompt] = useState(false);
-  const pendingShareRef = useRef(false);
-
-  // Auto-fire share once auth state lands after signing in from share prompt
-  useEffect(() => {
-    if (authUser && pendingShareRef.current) {
-      pendingShareRef.current = false;
-      setShowShareAuthPrompt(false);
-      handleGameShare();
-    }
-  }, [authUser]);
-
   const handleGameShare = useCallback(async () => {
     if (!game) return;
-    // Require Google sign-in so the share message says their real name
-    if (!authUser) {
-      setShowShareAuthPrompt(true);
-      return;
-    }
 
-    const displayName = authUser.displayName || userName || 'A Crickle player';
     const won   = game.status === 'won' || game.status === 'won_dismissed';
     const tries = game.guesses.length;
-
-    const code = (() => {
-      const pool = POOL[displayMode];
-      const idx  = pool.findIndex(p => p.name === game.target.name);
-      if (idx < 0) return null;
-      const pfx  = displayMode === 'Test' ? 'TE' : displayMode === 'ODI' ? 'OD' : 'T2';
-      return pfx + String(idx).padStart(4, '0');
-    })();
-
-    const BASE     = 'https://crickle-game.vercel.app';
-    const h2h      = code ? encodeH2H(displayName, tries, game.hintsUsed, won) : null;
-    const sourceModeStr = game.isDaily ? 'd' : 'e';
-    const shareUrl = code ? `${BASE}/?c=${code}&x=${h2h}&m=${sourceModeStr}` : BASE;
-
-    const hintsStr = game.hintsUsed === 0
-      ? '0 hints'
-      : `${game.hintsUsed} hint${game.hintsUsed > 1 ? 's' : ''}`;
-    const triesStr = won
-      ? `${tries} ${tries === 1 ? 'try' : 'tries'}`
-      : 'gave up';
+    const hintsStr = game.hintsUsed === 0 ? 'no hints' : `${game.hintsUsed} hint${game.hintsUsed > 1 ? 's' : ''}`;
+    const BASE = 'https://crickle-game.vercel.app';
 
     let text;
-    if (activeChallenge) {
-      const theirResult = formatScore(activeChallenge.senderScore);
+    if (game.isDaily) {
       text = won
-        ? `I beat ${activeChallenge.sender}'s Crickle challenge 🏏\nThey ${theirResult}. I got it in ${triesStr} with ${hintsStr}.\nThink you can beat both of us? Bet you can't.`
-        : `I tried ${activeChallenge.sender}'s Crickle challenge 🏏\nThey ${theirResult}. I ${triesStr}.\nBet you can't get it either.`;
-    } else if (game.isDaily) {
-      text = won
-        ? `Try today's daily mode, I guessed it in ${tries} tries with ${game.hintsUsed} hints.`
-        : `Try today's daily mode, I gave up on this one.`;
+        ? `Crickle Daily 🏏 — guessed today's ${displayMode} player in ${tries}/${MAX_GUESSES} with ${hintsStr}.\n${BASE}`
+        : `Crickle Daily 🏏 — couldn't get today's ${displayMode} player. Give it a shot!\n${BASE}`;
     } else {
       text = won
-        ? `I'm playing Crickle 🏏 — the cricket Wordle.\nI guessed this player in ${triesStr} with ${hintsStr}. Can you do better? Bet you can't.`
-        : `I'm playing Crickle 🏏 — the cricket Wordle.\nI gave up on this one. Think you can get it?`;
+        ? `Crickle 🏏 — guessed a ${displayMode} player in ${tries}/${MAX_GUESSES} with ${hintsStr}.\n${BASE}`
+        : `Crickle 🏏 — the cricket Wordle. Give it a shot!\n${BASE}`;
     }
 
     if (IS_NATIVE) {
-      try {
-        await Share.share({ title: 'Crickle 🏏', text: text + '\n' + shareUrl, dialogTitle: 'Challenge a friend' });
-        // Save outgoing record locally and to server
-        if (code && !activeChallenge) {
-          const outgoingRecord = {
-            id: Date.now(), sender: displayName,
-            senderScore: { won, tries, hints: game.hintsUsed },
-            mode: displayMode, code, status: 'outgoing',
-            targetPlayer: game.target.name, outgoing: true,
-            receiverName: null, receiverScore: null,
-            sourceMode: game.isDaily ? 'Daily' : 'Endless',
-          };
-          setSavedChallenges(prev => {
-            if (prev.find(c => c.code === code && c.outgoing === true)) return prev;
-            return [outgoingRecord, ...prev];
-          });
-          postChallengeToServer({
-            code, mode: displayMode, target_player: game.target.name,
-            sender_uid: authUser.uid, sender_name: displayName,
-            sender_score: { won, tries, hints: game.hintsUsed },
-            source_mode: game.isDaily ? 'Daily' : 'Endless',
-          });
-        }
-      } catch (e) {
-        if (!e?.message?.toLowerCase().includes('cancel')) {
-          try { await navigator.clipboard.writeText(text + '\n' + shareUrl); } catch {}
-        }
-      }
+      try { await Share.share({ title: 'Crickle 🏏', text, dialogTitle: 'Share your score' }); } catch {}
       return;
     }
     if (navigator.share) {
-      try {
-        await navigator.share({ title: 'Crickle 🏏', text: text + '\n', url: shareUrl });
-        if (code && !activeChallenge) {
-          const outgoingRecord = {
-            id: Date.now(), sender: displayName,
-            senderScore: { won, tries, hints: game.hintsUsed },
-            mode: displayMode, code, status: 'outgoing',
-            targetPlayer: game.target.name, outgoing: true,
-            receiverName: null, receiverScore: null,
-            sourceMode: game.isDaily ? 'Daily' : 'Endless',
-          };
-          setSavedChallenges(prev => {
-            if (prev.find(c => c.code === code && c.outgoing === true)) return prev;
-            return [outgoingRecord, ...prev];
-          });
-          postChallengeToServer({
-            code, mode: displayMode, target_player: game.target.name,
-            sender_uid: authUser.uid, sender_name: displayName,
-            sender_score: { won, tries, hints: game.hintsUsed },
-            source_mode: game.isDaily ? 'Daily' : 'Endless',
-          });
-        }
-        return;
-      } catch (e) {
+      try { await navigator.share({ title: 'Crickle 🏏', text }); return; } catch (e) {
         if (e?.name === 'AbortError') return;
       }
     }
-    try { await navigator.clipboard.writeText(text + '\n' + shareUrl); alert('Link copied!'); } catch {}
-  }, [game, displayMode, userName, authUser, activeChallenge, postChallengeToServer]);
-
-  const playSavedChallenge = (chall) => {
-    setMode(chall.mode);
-    setActiveTab('endless');
-    const decoded = decodeChallenge(chall.code);
-    if (decoded) {
-      setGames(prev => ({
-        ...prev,
-        [chall.mode]: { target: decoded.player, guesses: [], status: 'playing', hintsUsed: 0, revealBanner: null, isDaily: false, isEasy: false }
-      }));
-      setActiveChallenge(chall);
-      setScreen('game');
-    }
-  };
+    try { await navigator.clipboard.writeText(text); alert('Copied!'); } catch {}
+  }, [game, displayMode]);
 
   const createH2HChallenge = useCallback(async (friendship) => {
     if (!authUser) return;
@@ -1158,21 +896,6 @@ export default function App() {
           return updated;
         });
       }
-
-      if (activeChallenge) {
-        const myScore = { won: newStatus === 'won', tries: nextGuesses.length, hints: game.hintsUsed };
-        setSavedChallenges(prev => prev.map(c =>
-          c.id === activeChallenge.id ? { ...c, status: 'completed', myScore } : c
-        ));
-        if (authUser) {
-          postChallengeToServer({
-            code: activeChallenge.code,
-            receiver_uid: authUser.uid,
-            receiver_name: userName,
-            receiver_score: myScore,
-          });
-        }
-      }
     }
   };
 
@@ -1189,20 +912,6 @@ export default function App() {
         saveStats(updated);
         return updated;
       });
-    }
-    if (activeChallenge) {
-      const myScore = { won: false, tries: game.guesses.length, hints: game.hintsUsed };
-      setSavedChallenges(prev => prev.map(c =>
-        c.id === activeChallenge.id ? { ...c, status: 'completed', myScore } : c
-      ));
-      if (authUser) {
-        postChallengeToServer({
-          code: activeChallenge.code,
-          receiver_uid: authUser.uid,
-          receiver_name: userName,
-          receiver_score: myScore,
-        });
-      }
     }
   };
 
@@ -1313,16 +1022,14 @@ export default function App() {
   const avgGuesses = stats.wins > 0 ? (stats.totalGuesses / stats.wins).toFixed(1) : '—';
   const winRate    = stats.gamesPlayed > 0 ? Math.round(stats.wins / stats.gamesPlayed * 100) : 0;
   const hintRate   = stats.gamesPlayed > 0 ? Math.round(stats.hintGames / stats.gamesPlayed * 100) : 0;
-  // Pending = challenges where it's my turn (sender with no score, or receiver with no score)
-  const pendingCount = h2hChallenges.filter(c => {
-    if (!authUser) return false;
+  const pendingCount = authUser ? h2hChallenges.filter(c => {
     const isSender   = c.sender_uid   === authUser.uid;
     const isReceiver = c.receiver_uid === authUser.uid;
     return c.status === 'open' && (
-      (isSender   && !c.sender_score) ||
-      (isReceiver && !c.receiver_score)
+      (isSender   && c.sender_score?.won   === undefined) ||
+      (isReceiver && c.receiver_score?.won === undefined)
     );
-  }).length + savedChallenges.filter(c => c.status === 'pending').length;
+  }).length : 0;
 
   const FORMAT_DESC = {
     Test: { emoji:'🏏', sub:'Red ball · 5 days · Pure test of knowledge' },
@@ -2030,42 +1737,6 @@ export default function App() {
         <canvas ref={confettiRef} style={{
           position:'fixed', inset:0, pointerEvents:'none', zIndex:999,
         }} />
-      )}
-
-      {/* Share Sign-in Prompt Modal */}
-      {showShareAuthPrompt && (
-        <div style={{ position:'fixed', inset:0, zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.85)', padding:'20px' }}
-          onClick={() => setShowShareAuthPrompt(false)}>
-          <div onClick={e => e.stopPropagation()} style={{ background:'rgba(0,25,10,0.98)', border:'1px solid rgba(34,197,94,0.4)', borderRadius:'20px', padding:'28px 24px', width:'100%', maxWidth:'320px', textAlign:'center' }}>
-            <div style={{ fontSize:'2rem', marginBottom:'10px' }}>📤</div>
-            <h3 style={{ margin:'0 0 8px', fontSize:'1.1rem', color:'#fff' }}>Sign in to share</h3>
-            <p style={{ fontSize:'0.8rem', color:'rgba(255,255,255,0.6)', marginBottom:'24px', lineHeight:1.6 }}>
-              Sign in with Google so the challenge says your name — "{authUser?.displayName || 'Your Name'} has challenged you."
-            </p>
-            <button
-              onPointerDown={async () => { pendingShareRef.current = true; await handleGoogleSignIn(); }}
-              disabled={signingIn}
-              style={{
-                width:'100%', padding:'13px',
-                background: signingIn ? 'rgba(255,255,255,0.7)' : '#fff',
-                border:'none', borderRadius:'12px',
-                color:'#1a1a1a', fontWeight:800, fontSize:'0.95rem',
-                cursor: signingIn ? 'default' : 'pointer',
-                fontFamily:"'Outfit',system-ui,sans-serif",
-                display:'flex', alignItems:'center', justifyContent:'center', gap:'10px',
-                touchAction:'manipulation', userSelect:'none',
-              }}
-            >
-              {signingIn ? <span>Signing in…</span> : (
-                <>
-                  <svg width="20" height="20" viewBox="0 0 24 24" style={{ pointerEvents:'none', flexShrink:0 }}><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                  <span style={{ pointerEvents:'none' }}>Sign in with Google</span>
-                </>
-              )}
-            </button>
-            <button onClick={() => setShowShareAuthPrompt(false)} style={{ marginTop:'10px', background:'none', border:'none', color:'rgba(255,255,255,0.35)', fontSize:'0.78rem', cursor:'pointer' }}>Cancel</button>
-          </div>
-        </div>
       )}
 
       {/* Grand Win Overlay */}
