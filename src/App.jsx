@@ -323,8 +323,7 @@ const boxColor = (key, gVal, tVal, g, t) => {
     if (gVal === tVal && gVal != null) return { bg: '#166534', border: '#22c55e', color: '#bbf7d0' };
     if (gVal == null && tVal == null)  return { bg: '#166534', border: '#22c55e', color: '#bbf7d0' };
     if (gVal == null || tVal == null)  return { bg: '#1e2025', border: '#35373f', color: '#9ca3af' };
-    const diff = Math.abs(gVal - tVal);
-    return diff <= 1500
+    return Math.abs(gVal - tVal) <= tVal * 0.15
       ? { bg: '#713f12', border: '#d97706', color: '#fde68a' }
       : { bg: '#1e2025', border: '#35373f', color: '#9ca3af' };
   }
@@ -332,8 +331,7 @@ const boxColor = (key, gVal, tVal, g, t) => {
     if (gVal === tVal && gVal != null) return { bg: '#166534', border: '#22c55e', color: '#bbf7d0' };
     if (gVal == null && tVal == null)  return { bg: '#166534', border: '#22c55e', color: '#bbf7d0' };
     if (gVal == null || tVal == null)  return { bg: '#1e2025', border: '#35373f', color: '#9ca3af' };
-    const diff = Math.abs(gVal - tVal);
-    return diff <= 50
+    return Math.abs(gVal - tVal) <= tVal * 0.20
       ? { bg: '#713f12', border: '#d97706', color: '#fde68a' }
       : { bg: '#1e2025', border: '#35373f', color: '#9ca3af' };
   }
@@ -344,9 +342,8 @@ const boxColor = (key, gVal, tVal, g, t) => {
       return { bg: '#166534', border: '#22c55e', color: '#bbf7d0' };
     if (gVal == null || tVal == null)
       return { bg: '#1e2025', border: '#35373f', color: '#9ca3af' };
-    const diff = Math.abs(gVal - tVal);
-    const close = g.keyStatType === 'runs' ? diff <= 1500 : diff <= 50;
-    return close
+    const threshold = t.keyStatType === 'runs' ? tVal * 0.15 : tVal * 0.20;
+    return Math.abs(gVal - tVal) <= threshold
       ? { bg: '#713f12', border: '#d97706', color: '#fde68a' }
       : { bg: '#1e2025', border: '#35373f', color: '#9ca3af' };
   }
@@ -354,7 +351,7 @@ const boxColor = (key, gVal, tVal, g, t) => {
   if (gVal == null || tVal == null) return { bg: '#1e2025', border: '#35373f', color: '#9ca3af' };
   if (gVal === tVal)                return { bg: '#166534', border: '#22c55e', color: '#bbf7d0' };
   const diff = Math.abs(gVal - tVal);
-  const close = (key === 'debutYear' && diff <= 3) || (key === 'matches' && diff <= 20);
+  const close = (key === 'debutYear' && diff <= 3) || (key === 'matches' && diff / tVal <= 0.15);
   return close
     ? { bg: '#713f12', border: '#d97706', color: '#fde68a' }
     : { bg: '#1e2025', border: '#35373f', color: '#9ca3af' };
@@ -2390,6 +2387,9 @@ export default function App() {
                     }}>
                       <p style={{ margin:'0 0 8px', fontSize:'0.78rem', fontWeight:700, color:'#fbbf24', lineHeight:1.4 }}>
                         {(() => {
+                          if (game.isH2H) {
+                            return `⚠️ Using a hint gives your opponent an advantage — if they guess without hints and you don't, they win.`;
+                          }
                           const streak = game.isDaily ? (stats.dailyHintlessStreak || 0) : (stats.hintlessStreak || 0);
                           return streak > 0
                             ? `⚠️ Using a hint will break your ${streak}-game hintless streak.`
