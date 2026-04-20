@@ -1085,14 +1085,21 @@ export default function App() {
       console.error('playH2HChallenge: could not decode', codeToUse, challenge);
       return;
     }
-    setGames(prev => ({ ...prev, H2H: {
-      target: decoded.player, guesses: [], status: 'playing', hintsUsed: 0, revealBanner: null,
-      isDaily: false, isEasy: false, isH2H: true, format: decoded.mode,
-    }}));
+    setGames(prev => {
+      // If we're resuming the same challenge, keep existing guesses
+      const existing = prev.H2H;
+      const isSameChallenge = existing?.isH2H &&
+        activeH2HChallenge?.id === challenge.id &&
+        existing.status === 'playing';
+      return { ...prev, H2H: isSameChallenge ? existing : {
+        target: decoded.player, guesses: [], status: 'playing', hintsUsed: 0, revealBanner: null,
+        isDaily: false, isEasy: false, isH2H: true, format: decoded.mode,
+      }};
+    });
     setActiveH2HChallenge(challenge);
     setActiveTab('h2h');
     setScreen('game');
-  }, []);
+  }, [activeH2HChallenge]);
 
   const submitH2HScore = useCallback(async (challengeId, score) => {
     if (!authUser) return;
