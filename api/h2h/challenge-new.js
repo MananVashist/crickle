@@ -61,7 +61,6 @@ export default async function handler(req, res) {
       friendship.user_b_uid === sender_uid;
     if (!isParticipant) return res.status(403).json({ error: 'Not part of this friendship' });
 
-    const { player_code } = req.body;
     const code = randomBytes(8).toString('hex');
 
     const { data, error } = await supabase
