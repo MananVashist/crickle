@@ -61,6 +61,7 @@ export default async function handler(req, res) {
       friendship.user_b_uid === sender_uid;
     if (!isParticipant) return res.status(403).json({ error: 'Not part of this friendship' });
 
+    const { player_code } = req.body;
     const code = randomBytes(8).toString('hex');
 
     const { data, error } = await supabase
@@ -72,12 +73,15 @@ export default async function handler(req, res) {
         target_player,
         sender_uid,
         sender_name,
-        sender_score: {},     // filled when sender plays
+        sender_score: {},
         receiver_uid,
         receiver_name,
-        receiver_score: null, // filled when receiver plays
+        receiver_score: null,
         status: 'open',
         winner_uid: null,
+        // Store the decodable player code in the source_mode field temporarily
+        // (reusing existing column to avoid schema change)
+        source_mode: player_code || '',
       })
       .select()
       .single();

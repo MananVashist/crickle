@@ -1081,8 +1081,13 @@ export default function App() {
   }, [authUser, userName, dMode, fetchH2HChallenges]);
 
   const playH2HChallenge = useCallback((challenge) => {
-    const decoded = decodeChallenge(challenge.code);
-    if (!decoded) return;
+    // source_mode stores the player_code (TE0001 format) for new H2H challenges
+    const codeToUse = challenge.source_mode || challenge.player_code || challenge.code;
+    const decoded = decodeChallenge(codeToUse);
+    if (!decoded) {
+      console.error('playH2HChallenge: could not decode', codeToUse, challenge);
+      return;
+    }
     setGames(prev => ({ ...prev, H2H: {
       target: decoded.player, guesses: [], status: 'playing', hintsUsed: 0, revealBanner: null,
       isDaily: false, isEasy: false, isH2H: true, format: decoded.mode,
@@ -1622,6 +1627,11 @@ export default function App() {
                 <div style={{ width:'100%' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'16px' }}>
                     <button onClick={() => setH2hRivalryView(null)} style={{ background:'transparent', border:'none', color:'rgba(210,240,255,0.6)', fontWeight:800, cursor:'pointer', fontSize:'0.85rem', padding:0 }}>← Back</button>
+                    <button onClick={() => { fetchH2HChallenges(myUid); fetchFriends(myUid); }} style={{
+                      marginLeft:'auto', background:'transparent', border:'1px solid rgba(255,255,255,0.15)',
+                      borderRadius:'8px', padding:'5px 12px', color:'rgba(210,240,255,0.6)',
+                      fontSize:'0.75rem', fontWeight:700, cursor:'pointer',
+                    }}>↻ Refresh</button>
                   </div>
 
                   {/* Rivalry score header */}
@@ -1655,13 +1665,20 @@ export default function App() {
                       <div style={{ fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:'rgba(251,191,36,0.8)', marginBottom:'8px' }}>Open ({open.length})</div>
                       <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
                         {open.map(c => {
-                          const isSender   = c.sender_uid   === myUid;
-                          const myPlayed   = isSender ? !!c.sender_score   : !!c.receiver_score;
-                          const theyPlayed = isSender ? !!c.receiver_score : !!c.sender_score;
+                          const isSender   = c.sender_uid === myUid;
+                          // {} means not yet played, real score has 'won' property
+                          const myPlayed   = isSender
+                            ? (c.sender_score?.won !== undefined)
+                            : (c.receiver_score?.won !== undefined);
+                          const theyPlayed = isSender
+                            ? (c.receiver_score?.won !== undefined)
+                            : (c.sender_score?.won !== undefined);
                           return (
                             <div key={c.id} style={{ background:'rgba(0,30,15,0.8)', border:'1px solid rgba(251,191,36,0.25)', borderRadius:'12px', padding:'12px 14px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                               <div>
-                                <div style={{ fontSize:'0.82rem', fontWeight:800, color:'#fff' }}>{c.mode} · {c.target_player}</div>
+                                <div style={{ fontSize:'0.82rem', fontWeight:800, color:'#fff' }}>
+                                  {c.mode} {myPlayed ? `· ${c.target_player}` : '· ???'}
+                                </div>
                                 <div style={{ fontSize:'0.7rem', color:'rgba(210,240,255,0.5)', marginTop:'2px' }}>
                                   {myPlayed ? '✅ You played' : '⏳ Your turn'} · {theyPlayed ? `✅ ${oppName} played` : `⏳ ${oppName} pending`}
                                 </div>
