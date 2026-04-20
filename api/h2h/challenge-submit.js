@@ -8,7 +8,9 @@ const supabase = createClient(
 // Determine winner from two scores
 // won > gave up. Among both won: fewer hints > fewer tries. Both gave up = draw.
 function resolveWinner(senderUid, receiverUid, senderScore, receiverScore) {
-  if (!senderScore || !receiverScore) return null; // both haven't played yet
+  const sPlayed = senderScore   && senderScore.won   !== undefined;
+  const rPlayed = receiverScore && receiverScore.won !== undefined;
+  if (!sPlayed || !rPlayed) return null; // both haven't played yet
 
   if (senderScore.won && !receiverScore.won) return senderUid;
   if (!senderScore.won && receiverScore.won) return receiverUid;
@@ -64,10 +66,11 @@ export default async function handler(req, res) {
     }
 
     // Prevent overwriting an already submitted score
-    if (isSender && challenge.sender_score) {
+    // Empty object {} means not yet played; a real score has 'won' property
+    if (isSender && challenge.sender_score && challenge.sender_score.won !== undefined) {
       return res.status(400).json({ error: 'Score already submitted' });
     }
-    if (isReceiver && challenge.receiver_score) {
+    if (isReceiver && challenge.receiver_score && challenge.receiver_score.won !== undefined) {
       return res.status(400).json({ error: 'Score already submitted' });
     }
 

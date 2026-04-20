@@ -72,7 +72,7 @@ export default async function handler(req, res) {
         target_player,
         sender_uid,
         sender_name,
-        sender_score: null,   // filled when sender plays
+        sender_score: {},     // filled when sender plays
         receiver_uid,
         receiver_name,
         receiver_score: null, // filled when receiver plays
