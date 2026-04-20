@@ -1106,17 +1106,20 @@ export default function App() {
   }, [authUser, fetchH2HChallenges, fetchFriends]);
 
   const generateFriendRequestLink = useCallback(async () => {
-    if (!authUser) return null;
+    if (!authUser) { console.error('generateFriendRequestLink: no authUser'); return null; }
     try {
+      const body = { action: 'request', sender_uid: authUser.uid, sender_name: authUser.displayName || authUser.email?.split('@')[0] || 'Player' };
+      console.log('generateFriendRequestLink sending:', body);
       const res = await fetch(FRIENDS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'request', sender_uid: authUser.uid, sender_name: authUser.displayName || authUser.email?.split('@')[0] || 'Player' }),
+        body: JSON.stringify(body),
       });
-      if (!res.ok) return null;
       const data = await res.json();
+      console.log('generateFriendRequestLink response:', res.status, data);
+      if (!res.ok) return null;
       return `https://crickle-game.vercel.app/?fr=${data.token}`;
-    } catch { return null; }
+    } catch (e) { console.error('generateFriendRequestLink error:', e); return null; }
   }, [authUser, userName]);
 
   const handleGuess = (player) => {
