@@ -1,43 +1,11 @@
 ﻿import { createClient } from '@supabase/supabase-js';
 import { randomBytes } from 'crypto';
-import admin from 'firebase-admin';
 
-// 1. Initialize Supabase (We know this works perfectly)
+// 1. Initialize Supabase (This works perfectly)
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY
 );
-
-// 2. Safe Firebase Initializer
-// This guarantees that a bad key or missing variable WILL NOT crash your server.
-function getSafeFirebaseAdmin() {
-  if (admin.apps.length > 0) return admin; // Already initialized
-
-  try {
-    let formattedPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
-    if (formattedPrivateKey) {
-      formattedPrivateKey = formattedPrivateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
-    }
-
-    // If variables are missing, fail gracefully
-    if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !formattedPrivateKey) {
-      console.error('⚠️ Firebase Admin disabled: Missing Environment Variables.');
-      return null;
-    }
-
-    admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: formattedPrivateKey,
-      }),
-    });
-    return admin;
-  } catch (error) {
-    console.error('❌ Firebase Initialization Error:', error.message);
-    return null; // Return null so the main function can continue
-  }
-}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -46,6 +14,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   // GET /api/h2h/challenge-new?uid=xxx
+  // This will NOW WORK because there are no top-level Firebase imports to crash it
   if (req.method === 'GET') {
     const { uid } = req.query;
     if (!uid) return res.status(400).json({ error: 'uid required' });
@@ -87,7 +56,7 @@ export default async function handler(req, res) {
 
     const code = randomBytes(8).toString('hex');
 
-    // CREATE THE CHALLENGE (Core Functionality)
+    // 2. CREATE THE CHALLENGE (Core Functionality happens first)
     const { data, error } = await supabase
       .from('crickle_challenges')
       .insert({
@@ -101,32 +70,50 @@ export default async function handler(req, res) {
 
     if (error) return res.status(500).json({ error: error.message });
 
-    // 3. PUSH NOTIFICATION (Isolated completely from core functionality)
+    // 3. DYNAMIC PUSH NOTIFICATION (Completely isolated)
     try {
-      const firebaseAdmin = getSafeFirebaseAdmin();
-      
-      // Only proceed if Firebase initialized properly
-      if (firebaseAdmin) {
-        const { data: tokenData } = await supabase
-          .from('crickle_user_tokens')
-          .select('fcm_token')
-          .eq('uid', receiver_uid)
-          .maybeSingle();
+      // We only attempt to load Firebase AFTER the challenge is successfully saved
+      const adminModule = await import('firebase-admin');
+      const admin = adminModule.default || adminModule;
 
-        if (tokenData?.fcm_token) {
-          await firebaseAdmin.messaging().send({
-            token: tokenData.fcm_token,
-            notification: {
-              title: 'New Crickle Challenge! 🏏',
-              body: `${sender_name} has challenged you to a ${mode} game.`,
-            },
+      if (!admin.apps.length) {
+        let formattedPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+        if (formattedPrivateKey) {
+          formattedPrivateKey = formattedPrivateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
+        }
+
+        if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && formattedPrivateKey) {
+          admin.initializeApp({
+            credential: admin.credential.cert({
+              projectId: process.env.FIREBASE_PROJECT_ID,
+              clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+              privateKey: formattedPrivateKey,
+            }),
           });
-          console.log(`✅ Push sent to ${receiver_name}`);
+        } else {
+          throw new Error("Missing Firebase Environment Variables");
         }
       }
+
+      const { data: tokenData } = await supabase
+        .from('crickle_user_tokens')
+        .select('fcm_token')
+        .eq('uid', receiver_uid)
+        .maybeSingle();
+
+      if (tokenData?.fcm_token) {
+        await admin.messaging().send({
+          token: tokenData.fcm_token,
+          notification: {
+            title: 'New Crickle Challenge! 🏏',
+            body: `${sender_name} has challenged you to a ${mode} game.`,
+          },
+        });
+        console.log(`✅ Push sent to ${receiver_name}`);
+      }
     } catch (pushError) {
-      // If the push fails, we silently log it. It will NOT crash the endpoint.
-      console.error('❌ Failed to send push notification:', pushError);
+      // If the module is missing or keys are wrong, it fails silently here and DOES NOT crash the app
+      console.error('❌ Safely caught notification error:', pushError.message);
     }
 
     // 4. RETURN SUCCESS NO MATTER WHAT
