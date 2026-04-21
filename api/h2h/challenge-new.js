@@ -77,7 +77,7 @@ export default async function handler(req, res) {
       const admin = adminModule.default || adminModule;
 
       if (!admin.apps.length) {
-        let formattedPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+        let formattedPrivateKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
         if (formattedPrivateKey) {
           formattedPrivateKey = formattedPrivateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
         }
