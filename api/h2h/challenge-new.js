@@ -3,13 +3,19 @@ import { randomBytes } from 'crypto';
 import admin from 'firebase-admin';
 
 // 1. Initialize Firebase Admin (runs once per serverless instance)
+// 1. Initialize Firebase Admin (runs once per serverless instance)
 if (!admin.apps.length) {
+  // Safely parse the private key: removes surrounding quotes and fixes escaped newlines
+  let formattedPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+  if (formattedPrivateKey) {
+    formattedPrivateKey = formattedPrivateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
+  }
+
   admin.initializeApp({
     credential: admin.credential.cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      // The replace() is crucial so Vercel reads the line breaks correctly
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      privateKey: formattedPrivateKey,
     }),
   });
 }
