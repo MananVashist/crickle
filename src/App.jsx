@@ -442,37 +442,79 @@ export default function App() {
     return () => unsub();
   }, [fetchFriends, fetchH2HChallenges]);
 
+
   // ── FCM token registration (native only) ──
-  // Requires: npm install @capacitor/push-notifications && npx cap sync android
   useEffect(() => {
+    // 1. Guard: Only execute on native platforms and when a user is authenticated
     if (!IS_NATIVE || !authUser) return;
-    const registerFCM = async () => {
+
+    let pushListeners = [];
+
+    const registerPushNotifications = async () => {
       try {
         const { PushNotifications } = await import('@capacitor/push-notifications');
-        const perm = await PushNotifications.requestPermissions();
-        if (perm.receive !== 'granted') return;
+
+        // 2. Request permission from the user
+        const permStatus = await PushNotifications.requestPermissions();
+        if (permStatus.receive !== 'granted') {
+          console.warn('User denied push notification permissions.');
+          return;
+        }
+
+        // 3. Register the device with FCM
         await PushNotifications.register();
-        PushNotifications.addListener('registration', async ({ value: token }) => {
-          try {
-            const { createClient } = await import('@supabase/supabase-js');
-            const sb = createClient(
-              import.meta.env.VITE_SUPABASE_URL,
-              import.meta.env.VITE_SUPABASE_ANON_KEY
-            );
-            await sb.from('crickle_user_tokens').upsert({
-              uid: authUser.uid,
-              fcm_token: token,
-              updated_at: new Date().toISOString(),
-            });
-          } catch {}
-        });
-      } catch (e) {
-        console.warn('FCM registration error:', e);
+
+        // 4. Capture the token and save it to Supabase
+        const registrationListener = await PushNotifications.addListener(
+          'registration',
+          async ({ value: token }) => {
+            console.log('FCM Token generated:', token);
+            try {
+              const { createClient } = await import('@supabase/supabase-js');
+              const supabase = createClient(
+                import.meta.env.VITE_SUPABASE_URL,
+                import.meta.env.VITE_SUPABASE_ANON_KEY
+              );
+
+              const { error } = await supabase.from('crickle_user_tokens').upsert({
+                uid: authUser.uid,
+                fcm_token: token,
+                updated_at: new Date().toISOString(),
+              });
+
+              if (error) {
+                console.error('Failed to save token to Supabase:', error.message);
+              } else {
+                console.log('Token successfully saved to crickle_user_tokens.');
+              }
+            } catch (dbError) {
+              console.error('Supabase client error:', dbError);
+            }
+          }
+        );
+        pushListeners.push(registrationListener);
+
+        // Catch FCM registration failures
+        const errorListener = await PushNotifications.addListener(
+          'registrationError',
+          (error) => {
+            console.error('FCM Registration failed:', error);
+          }
+        );
+        pushListeners.push(errorListener);
+
+      } catch (setupError) {
+        console.error('Push notification setup error:', setupError);
       }
     };
-    registerFCM();
-  }, [authUser]);
 
+    registerPushNotifications();
+
+    // Cleanup listeners when the component unmounts
+    return () => {
+      pushListeners.forEach((listener) => listener.remove());
+    };
+  }, [authUser]);
   // ── Refresh H2H data when tab opened ──
   useEffect(() => {
     if (menuTab === 'challenges' && authUser) {

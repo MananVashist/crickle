@@ -1,5 +1,18 @@
-import { createClient } from '@supabase/supabase-js';
+﻿import { createClient } from '@supabase/supabase-js';
 import { randomBytes } from 'crypto';
+import admin from 'firebase-admin';
+
+// 1. Initialize Firebase Admin (runs once per serverless instance)
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      // The replace() is crucial so Vercel reads the line breaks correctly
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    }),
+  });
+}
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -13,7 +26,6 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   // GET /api/h2h/challenge-new?uid=xxx
-  // Returns all new-flow challenges for a user, grouped by friendship_id
   if (req.method === 'GET') {
     const { uid } = req.query;
     if (!uid) return res.status(400).json({ error: 'uid required' });
@@ -22,7 +34,7 @@ export default async function handler(req, res) {
       .from('crickle_challenges')
       .select('*')
       .or(`sender_uid.eq.${uid},receiver_uid.eq.${uid}`)
-      .not('friendship_id', 'is', null)  // only new-flow challenges have friendship_id
+      .not('friendship_id', 'is', null) 
       .order('created_at', { ascending: false });
 
     if (error) return res.status(500).json({ error: error.message });
@@ -30,8 +42,6 @@ export default async function handler(req, res) {
   }
 
   // POST /api/h2h/challenge-new
-  // Body: { friendship_id, sender_uid, sender_name, receiver_uid, receiver_name,
-  //         mode, player_code, target_player, daily_player_code }
   if (req.method === 'POST') {
     const {
       friendship_id,
@@ -63,6 +73,7 @@ export default async function handler(req, res) {
 
     const code = randomBytes(8).toString('hex');
 
+    // Create the challenge in the database
     const { data, error } = await supabase
       .from('crickle_challenges')
       .insert({
@@ -78,14 +89,38 @@ export default async function handler(req, res) {
         receiver_score: null,
         status: 'open',
         winner_uid: null,
-        // Store the decodable player code in the source_mode field temporarily
-        // (reusing existing column to avoid schema change)
         source_mode: player_code || '',
       })
       .select()
       .single();
 
     if (error) return res.status(500).json({ error: error.message });
+
+    // 2. Fetch the receiver's token and send the Push Notification
+    try {
+      const { data: tokenData } = await supabase
+        .from('crickle_user_tokens')
+        .select('fcm_token')
+        .eq('uid', receiver_uid)
+        .maybeSingle();
+
+      if (tokenData?.fcm_token) {
+        await admin.messaging().send({
+          token: tokenData.fcm_token,
+          notification: {
+            title: 'New Crickle Challenge! 🏏',
+            body: `${sender_name} has challenged you to a ${mode} game.`,
+          },
+        });
+        console.log(`✅ Push sent to ${receiver_name}`);
+      } else {
+        console.log(`⚠️ No FCM token found for ${receiver_name}`);
+      }
+    } catch (pushError) {
+      console.error('❌ Failed to send push notification:', pushError);
+    }
+
+    // Return the created challenge data to the frontend
     return res.json(data);
   }
 
