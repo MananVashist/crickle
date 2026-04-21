@@ -108,6 +108,14 @@ export default async function handler(req, res) {
             title: 'New Crickle Challenge! 🏏',
             body: `${sender_name} has challenged you to a ${mode} game.`,
           },
+          android: {
+            notification: {
+              channelId: "crickle_matches",
+              sound: "cricket_bat_sound",
+              priority: "max",
+              defaultSound: false
+            }
+          }
         });
         console.log(`✅ Push sent to ${receiver_name}`);
       }

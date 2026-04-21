@@ -143,6 +143,14 @@ export default async function handler(req, res) {
               title: pushTitle,
               body: pushBody,
             },
+            android: {
+              notification: {
+                channelId: "crickle_matches",
+                sound: "cricket_bat_sound",
+                priority: "max",
+                defaultSound: false
+              }
+            }
           });
           console.log(`✅ Result push sent to ${opponentUid}`);
         }

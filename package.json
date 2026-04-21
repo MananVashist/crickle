@@ -17,6 +17,7 @@
     "@capacitor/filesystem": "^8.1.2",
     "@capacitor/push-notifications": "^8.0.3",
     "@capacitor/share": "^8.0.1",
+    "@capawesome/capacitor-app-update": "^8.0.3",
     "@supabase/supabase-js": "^2.103.3",
     "@tailwindcss/vite": "^4.2.2",
     "firebase": "^12.12.0",

@@ -2,6 +2,7 @@
 import { AdMob, InterstitialAdPluginEvents } from '@capacitor-community/admob';
 import { App as CapApp } from '@capacitor/app';
 import { Share } from '@capacitor/share';
+import { AppUpdate } from '@capawesome/capacitor-app-update';
 import { initializeApp as initFirebase } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import testPlayersRaw from './testplayers.json';
@@ -233,7 +234,6 @@ export const getDailyPlayer = (format) => {
   return pool[getDaysSinceEpoch() % pool.length];
 };
 
-// BLOCK A FIX: Endless Repeats Logic
 export const freshGameState = (format, isDaily = false) => {
   const pool = POOL[format];
   if (!pool.length) return null;
@@ -425,6 +425,22 @@ export default function App() {
       .catch(() => {});
   }, []);
 
+  // ── Native Play Store Auto-Update Check ──
+  useEffect(() => {
+    if (!IS_NATIVE) return;
+    const enforceUpdate = async () => {
+      try {
+        const result = await AppUpdate.getAppUpdateInfo();
+        if (result.updateAvailability === 2) {
+          await AppUpdate.performImmediateUpdate(); 
+        }
+      } catch (error) {
+        console.error('Failed to check for Play Store updates:', error);
+      }
+    };
+    enforceUpdate();
+  }, []);
+
   // ── H2H state ──
   const [signingIn,         setSigningIn]         = useState(false);
   const [friends,           setFriends]           = useState([]);
@@ -471,7 +487,6 @@ export default function App() {
 
   // ── FCM token registration (native only) ──
   useEffect(() => {
-    // 1. Guard: Only execute on native platforms and when a user is authenticated
     if (!IS_NATIVE || !authUser) return;
 
     let pushListeners = [];
@@ -480,7 +495,6 @@ export default function App() {
       try {
         const { PushNotifications } = await import('@capacitor/push-notifications');
 
-        // BLOCK B FIX: Safely request permissions for Android 13+
         let permStatus = await PushNotifications.checkPermissions();
         if (permStatus.receive === 'prompt') {
           permStatus = await PushNotifications.requestPermissions();
@@ -491,10 +505,18 @@ export default function App() {
           return;
         }
 
-        // 3. Register the device with FCM
         await PushNotifications.register();
 
-        // 4. Capture the token and save it to Supabase
+        // Create the high-priority channel for the custom bat sound
+        await PushNotifications.createChannel({
+          id: 'crickle_matches',
+          name: 'Match Updates',
+          description: 'Head-to-Head match challenge alerts',
+          importance: 5, // 5 is MAX importance: makes sound and pops up on screen
+          visibility: 1, 
+          sound: 'cricket_bat_sound.mp3', // Must exactly match the filename in res/raw/
+        });
+
         const registrationListener = await PushNotifications.addListener(
           'registration',
           async ({ value: token }) => {
@@ -524,7 +546,6 @@ export default function App() {
         );
         pushListeners.push(registrationListener);
 
-        // Catch FCM registration failures
         const errorListener = await PushNotifications.addListener(
           'registrationError',
           (error) => {
@@ -540,7 +561,6 @@ export default function App() {
 
     registerPushNotifications();
 
-    // Cleanup listeners when the component unmounts
     return () => {
       pushListeners.forEach((listener) => listener.remove());
     };
@@ -647,7 +667,6 @@ export default function App() {
     }
   }, [games.Daily]);
 
-  // BLOCK C FIX: Persist H2H using a Dictionary so it remembers multiple games
   useEffect(() => {
     if (games.H2H && activeH2HChallenge && games.H2H.status === 'playing') {
       try {
@@ -690,7 +709,7 @@ export default function App() {
       CapApp.addListener('appUrlOpen', (data) => {
         if (!data?.url) return;
         const search  = data.url.includes('?') ? data.url.slice(data.url.indexOf('?')) : '';
-        const params  = new URLSearchParams(search);
+        const params  = newSearchParams(search);
         const frToken = params.get('fr');
         const h2hId   = params.get('h2h');
         if (frToken) { setPendingFriendReq({ token: frToken, senderName: null }); setMenuTab('challenges'); setScreen('menu'); }
@@ -700,7 +719,6 @@ export default function App() {
     return () => { urlListener?.remove(); };
   }, []);
 
-  // Fetch sender name for pending friend request
   useEffect(() => {
     if (!pendingFriendReq?.token || pendingFriendReq.senderName) return;
     fetch(`${FRIENDS_API}?token=${pendingFriendReq.token}`)
@@ -817,11 +835,24 @@ export default function App() {
   const createH2HChallenge = useCallback(async (friendship) => {
     if (!authUser) return;
     const dailyPlayer  = getDailyPlayer(dMode);
-    const allEligible  = [
+    
+    // 1. Fetch past targets between these friends
+    const pastTargets = h2hChallenges
+      .filter(c => c.friendship_id === friendship.id)
+      .map(c => c.target_player);
+
+    // 2. Filter them out of the eligible pool
+    let allEligible  = [
       ...POOL.Test.map(p => ({ ...p, format:'Test' })),
       ...POOL.ODI.map(p  => ({ ...p, format:'ODI'  })),
       ...POOL.T20.map(p  => ({ ...p, format:'T20'  })),
-    ].filter(p => p.name !== dailyPlayer.name);
+    ].filter(p => p.name !== dailyPlayer.name && !pastTargets.includes(p.name));
+
+    // Fallback if they have literally played the entire database
+    if (allEligible.length === 0) {
+       allEligible = [...POOL.Test.map(p => ({ ...p, format:'Test' }))];
+    }
+
     const target = allEligible[Math.floor(Math.random() * allEligible.length)];
     const myUid  = authUser.uid;
     const myName = authUser.displayName || userName;
@@ -845,34 +876,29 @@ export default function App() {
       setScreen('game');
       fetchH2HChallenges(myUid);
     } catch {}
-  }, [authUser, userName, dMode, fetchH2HChallenges]);
+  }, [authUser, userName, dMode, fetchH2HChallenges, h2hChallenges]);
 
-  // BLOCK D FIX: H2H Storage Restoration and Score Submission
   const playH2HChallenge = useCallback((challenge) => {
     const codeToUse = challenge.source_mode || challenge.player_code || challenge.code;
     const decoded   = decodeChallenge(codeToUse);
     if (!decoded) { console.error('playH2HChallenge: could not decode', codeToUse, challenge); return; }
 
     setGames(prev => {
-      // 1. Same challenge already in memory and still playing
       const existing = prev.H2H;
       if (existing?.isH2H && activeH2HChallenge?.id === challenge.id && existing.status === 'playing') {
         return prev;
       }
-      // 2. Check localStorage for persisted in-progress state using the new Dictionary
       try {
         const savedV2 = JSON.parse(localStorage.getItem('crickle_h2h_state_v2') || '{}');
         if (savedV2[challenge.id] && savedV2[challenge.id].status === 'playing') {
           return { ...prev, H2H: savedV2[challenge.id] };
         }
         
-        // Fallback for games saved on the old version
         const savedV1 = JSON.parse(localStorage.getItem('crickle_h2h_state_v1'));
         if (savedV1?.challengeId === challenge.id && savedV1?.game?.status === 'playing') {
           return { ...prev, H2H: savedV1.game };
         }
       } catch {}
-      // 3. Fresh game
       return { ...prev, H2H: { target: decoded.player, guesses:[], status:'playing', hintsUsed:0, revealBanner:null, isDaily:false, isEasy:false, isH2H:true, format: decoded.mode } };
     });
     setActiveH2HChallenge(challenge);
@@ -888,12 +914,11 @@ export default function App() {
         headers: { 'Content-Type':'application/json' },
         body: JSON.stringify({ challenge_id: challengeId, uid: authUser.uid, score }),
       });
-      // Clear persisted H2H state for this specific challenge on submit
       try { 
         const saved = JSON.parse(localStorage.getItem('crickle_h2h_state_v2') || '{}');
         delete saved[challengeId];
         localStorage.setItem('crickle_h2h_state_v2', JSON.stringify(saved));
-        localStorage.removeItem('crickle_h2h_state_v1'); // Clean up the old buggy save file entirely
+        localStorage.removeItem('crickle_h2h_state_v1'); 
       } catch {}
       fetchH2HChallenges(authUser.uid);
       fetchFriends(authUser.uid);
@@ -957,28 +982,22 @@ export default function App() {
     );
   }).length : 0;
 
-  // EXTRA FIX: Enhanced Native Back Button Routing
   useEffect(() => {
     if (!IS_NATIVE) return;
     let listener;
     CapApp.addListener('backButton', () => {
       if (screen === 'game') {
-        // If in a game, back out to the menu
         setShowHintDrop(false); 
         setScreen('menu'); 
         setPlayFlow('main');
       } else if (screen === 'menu') {
         if (h2hRivalryView) {
-          // If viewing a specific friend rivalry, go back to the friends list
           setH2hRivalryView(null);
         } else if (menuTab !== 'play') {
-          // If on the 'Challenges' or 'Stats' tab, go back to 'Play' tab
           setMenuTab('play');
         } else if (playFlow !== 'main') {
-          // If on a sub-screen of the play tab, go back to main play view
           setPlayFlow('main');
         } else {
-          // If completely at the root, exit the app
           CapApp.exitApp();
         }
       } else {

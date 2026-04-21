@@ -283,16 +283,18 @@ export default function H2HTab() {
                 (c.receiver_uid === myUid && c.receiver_score?.won === undefined)
               )
             ).length;
+            
             return (
               <button key={f.id} onClick={() => setH2hRivalryView(f.id)} style={{
                 width:'100%', background:'rgba(0,30,15,0.8)',
                 border:`1px solid ${pending > 0 ? 'rgba(251,191,36,0.3)' : 'rgba(255,255,255,0.1)'}`,
                 borderRadius:'14px', padding:'16px',
-                display:'flex', alignItems:'center', justifyContent:'space-between',
-                cursor:'pointer', fontFamily:"'Outfit',system-ui,sans-serif",
+                display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px',
+                cursor:'pointer', fontFamily:"'Outfit',system-ui,sans-serif", textAlign:'left'
               }}>
-                <div style={{ textAlign:'left' }}>
-                  <div style={{ fontSize:'0.95rem', fontWeight:800, color:'#fff', marginBottom:'3px' }}>
+                {/* Left Side: Names (Truncates if too long) */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize:'0.95rem', fontWeight:800, color:'#fff', marginBottom:'4px', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
                     {myName} vs {oppName}
                   </div>
                   <div style={{ fontSize:'0.72rem', color:'rgba(210,240,255,0.5)' }}>
@@ -300,21 +302,23 @@ export default function H2HTab() {
                   </div>
                 </div>
                 
-                {/* Flex-column layout so score and pending badge stack vertically */}
-                <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-                  <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'4px' }}>
-                    {(myWins + thWins) > 0 && (
-                      <div style={{ fontSize:'1.4rem', fontWeight:900, lineHeight:1, color: myWins > thWins ? '#22c55e' : myWins < thWins ? '#f87171' : '#fbbf24' }}>
-                        {myWins}–{thWins}
-                      </div>
-                    )}
-                    {pending > 0 && (
-                      <span style={{ background:'rgba(251,191,36,0.2)', border:'1px solid rgba(251,191,36,0.4)', color:'#fbbf24', borderRadius:'6px', padding:'3px 8px', fontSize:'0.65rem', fontWeight:700, whiteSpace:'nowrap' }}>
-                        {pending} pending
-                      </span>
-                    )}
-                  </div>
-                  <span style={{ color:'rgba(255,255,255,0.3)' }}>→</span>
+                {/* Right Side: Score Pill & Pending Badge (Never shrinks or wraps) */}
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'6px', flexShrink: 0 }}>
+                  {(myWins + thWins) > 0 && (
+                    <div style={{
+                      background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '8px', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '6px'
+                    }}>
+                      <span style={{ fontSize:'1.1rem', fontWeight:900, color: myWins >= thWins ? '#22c55e' : '#fff' }}>{myWins}</span>
+                      <span style={{ fontSize:'0.8rem', color:'rgba(255,255,255,0.3)' }}>-</span>
+                      <span style={{ fontSize:'1.1rem', fontWeight:900, color: thWins >= myWins ? (thWins > myWins ? '#f87171' : '#22c55e') : '#fff' }}>{thWins}</span>
+                    </div>
+                  )}
+                  {pending > 0 && (
+                    <span style={{ background:'rgba(251,191,36,0.2)', border:'1px solid rgba(251,191,36,0.4)', color:'#fbbf24', borderRadius:'6px', padding:'3px 8px', fontSize:'0.65rem', fontWeight:700 }}>
+                      {pending} pending
+                    </span>
+                  )}
                 </div>
               </button>
             );
