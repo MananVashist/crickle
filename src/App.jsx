@@ -233,11 +233,37 @@ export const getDailyPlayer = (format) => {
   return pool[getDaysSinceEpoch() % pool.length];
 };
 
+// BLOCK A FIX: Endless Repeats Logic
 export const freshGameState = (format, isDaily = false) => {
   const pool = POOL[format];
   if (!pool.length) return null;
+
+  let target;
+  if (isDaily) {
+    target = getDailyPlayer(format);
+  } else {
+    // Check history of last 50 seen players
+    let seen = [];
+    try { seen = JSON.parse(localStorage.getItem('crickle_seen_players') || '[]'); } catch {}
+
+    let available = pool.filter(p => !seen.includes(p.name));
+    
+    // If they have somehow played the entire pool, reset the history
+    if (available.length === 0) {
+      available = pool;
+      seen = [];
+    }
+    
+    target = available[Math.floor(Math.random() * available.length)];
+
+    // Save back to history, keeping only the most recent 50
+    seen.push(target.name);
+    if (seen.length > 50) seen.shift(); 
+    try { localStorage.setItem('crickle_seen_players', JSON.stringify(seen)); } catch {}
+  }
+
   return {
-    target:       isDaily ? getDailyPlayer(format) : pool[Math.floor(Math.random() * pool.length)],
+    target,
     guesses:      [],
     status:       'playing',
     hintsUsed:    0,
@@ -454,8 +480,12 @@ export default function App() {
       try {
         const { PushNotifications } = await import('@capacitor/push-notifications');
 
-        // 2. Request permission from the user
-        const permStatus = await PushNotifications.requestPermissions();
+        // BLOCK B FIX: Safely request permissions for Android 13+
+        let permStatus = await PushNotifications.checkPermissions();
+        if (permStatus.receive === 'prompt') {
+          permStatus = await PushNotifications.requestPermissions();
+        }
+
         if (permStatus.receive !== 'granted') {
           console.warn('User denied push notification permissions.');
           return;
@@ -515,6 +545,7 @@ export default function App() {
       pushListeners.forEach((listener) => listener.remove());
     };
   }, [authUser]);
+  
   // ── Refresh H2H data when tab opened ──
   useEffect(() => {
     if (menuTab === 'challenges' && authUser) {
@@ -616,14 +647,13 @@ export default function App() {
     }
   }, [games.Daily]);
 
-  // Persist H2H in-progress game so it survives browser/app close
+  // BLOCK C FIX: Persist H2H using a Dictionary so it remembers multiple games
   useEffect(() => {
     if (games.H2H && activeH2HChallenge && games.H2H.status === 'playing') {
       try {
-        localStorage.setItem('crickle_h2h_state_v1', JSON.stringify({
-          challengeId: activeH2HChallenge.id,
-          game: games.H2H,
-        }));
+        const saved = JSON.parse(localStorage.getItem('crickle_h2h_state_v2') || '{}');
+        saved[activeH2HChallenge.id] = games.H2H;
+        localStorage.setItem('crickle_h2h_state_v2', JSON.stringify(saved));
       } catch {}
     }
   }, [games.H2H, activeH2HChallenge]);
@@ -680,17 +710,6 @@ export default function App() {
   }, [pendingFriendReq?.token]);
 
   const handleDailyStart = () => { setActiveTab('daily'); setScreen('game'); };
-
-  // ── Android back button ──
-  useEffect(() => {
-    if (!IS_NATIVE) return;
-    let listener;
-    CapApp.addListener('backButton', () => {
-      if (screen === 'game') { setShowHintDrop(false); setScreen('menu'); setPlayFlow('main'); }
-      else { CapApp.exitApp(); }
-    }).then(l => { listener = l; }).catch(() => {});
-    return () => { listener?.remove(); };
-  }, [screen]);
 
   // ── Confetti ──
   const [showConfetti, setShowConfetti] = useState(false);
@@ -828,22 +847,29 @@ export default function App() {
     } catch {}
   }, [authUser, userName, dMode, fetchH2HChallenges]);
 
+  // BLOCK D FIX: H2H Storage Restoration and Score Submission
   const playH2HChallenge = useCallback((challenge) => {
     const codeToUse = challenge.source_mode || challenge.player_code || challenge.code;
     const decoded   = decodeChallenge(codeToUse);
     if (!decoded) { console.error('playH2HChallenge: could not decode', codeToUse, challenge); return; }
 
     setGames(prev => {
-      // 1. Same challenge already in memory and still playing → keep it
+      // 1. Same challenge already in memory and still playing
       const existing = prev.H2H;
       if (existing?.isH2H && activeH2HChallenge?.id === challenge.id && existing.status === 'playing') {
         return prev;
       }
-      // 2. Check localStorage for persisted in-progress state
+      // 2. Check localStorage for persisted in-progress state using the new Dictionary
       try {
-        const saved = JSON.parse(localStorage.getItem('crickle_h2h_state_v1'));
-        if (saved?.challengeId === challenge.id && saved?.game?.status === 'playing') {
-          return { ...prev, H2H: saved.game };
+        const savedV2 = JSON.parse(localStorage.getItem('crickle_h2h_state_v2') || '{}');
+        if (savedV2[challenge.id] && savedV2[challenge.id].status === 'playing') {
+          return { ...prev, H2H: savedV2[challenge.id] };
+        }
+        
+        // Fallback for games saved on the old version
+        const savedV1 = JSON.parse(localStorage.getItem('crickle_h2h_state_v1'));
+        if (savedV1?.challengeId === challenge.id && savedV1?.game?.status === 'playing') {
+          return { ...prev, H2H: savedV1.game };
         }
       } catch {}
       // 3. Fresh game
@@ -862,8 +888,13 @@ export default function App() {
         headers: { 'Content-Type':'application/json' },
         body: JSON.stringify({ challenge_id: challengeId, uid: authUser.uid, score }),
       });
-      // Clear persisted H2H state on submit
-      try { localStorage.removeItem('crickle_h2h_state_v1'); } catch {}
+      // Clear persisted H2H state for this specific challenge on submit
+      try { 
+        const saved = JSON.parse(localStorage.getItem('crickle_h2h_state_v2') || '{}');
+        delete saved[challengeId];
+        localStorage.setItem('crickle_h2h_state_v2', JSON.stringify(saved));
+        localStorage.removeItem('crickle_h2h_state_v1'); // Clean up the old buggy save file entirely
+      } catch {}
       fetchH2HChallenges(authUser.uid);
       fetchFriends(authUser.uid);
     } catch {}
@@ -925,6 +956,37 @@ export default function App() {
       (isReceiver && c.receiver_score?.won === undefined)
     );
   }).length : 0;
+
+  // EXTRA FIX: Enhanced Native Back Button Routing
+  useEffect(() => {
+    if (!IS_NATIVE) return;
+    let listener;
+    CapApp.addListener('backButton', () => {
+      if (screen === 'game') {
+        // If in a game, back out to the menu
+        setShowHintDrop(false); 
+        setScreen('menu'); 
+        setPlayFlow('main');
+      } else if (screen === 'menu') {
+        if (h2hRivalryView) {
+          // If viewing a specific friend rivalry, go back to the friends list
+          setH2hRivalryView(null);
+        } else if (menuTab !== 'play') {
+          // If on the 'Challenges' or 'Stats' tab, go back to 'Play' tab
+          setMenuTab('play');
+        } else if (playFlow !== 'main') {
+          // If on a sub-screen of the play tab, go back to main play view
+          setPlayFlow('main');
+        } else {
+          // If completely at the root, exit the app
+          CapApp.exitApp();
+        }
+      } else {
+        CapApp.exitApp();
+      }
+    }).then(l => { listener = l; }).catch(() => {});
+    return () => { listener?.remove(); };
+  }, [screen, h2hRivalryView, menuTab, playFlow]);
 
   // ─────────────────────────────────────────────────────────────
   // Context value — everything screens need

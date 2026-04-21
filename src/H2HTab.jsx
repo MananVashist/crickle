@@ -1,4 +1,4 @@
-﻿import React, { useContext } from 'react';
+﻿import React, { useContext, useState } from 'react';
 import { Share } from '@capacitor/share';
 import { CrickleContext } from './context';
 import { IS_NATIVE, FRIENDS_API, formatScore } from './App';
@@ -29,6 +29,8 @@ const GoogleBtn = ({ onPress, signingIn }) => (
 );
 
 export default function H2HTab() {
+  const [subTab, setSubTab] = useState('open'); // State for Open/Completed sub-tabs
+
   const {
     authUser, authLoading, signingIn, userName,
     friends, h2hChallenges, h2hRivalryView, setH2hRivalryView,
@@ -42,7 +44,7 @@ export default function H2HTab() {
     <div style={{ textAlign:'center', padding:'40px 20px', color:'rgba(210,240,255,0.5)' }}>Loading…</div>
   );
 
-  // ── Pending friend request card ── (shown BEFORE sign-in check so non-authed users see it)
+  // ── Pending friend request card ──
   if (pendingFriendReq) {
     const acceptFriend = async () => {
       if (!authUser) return;
@@ -66,39 +68,18 @@ export default function H2HTab() {
 
     return (
       <div style={{ width:'100%' }}>
-        <div style={{
-          background:'rgba(34,197,94,0.12)', border:'2px solid rgba(34,197,94,0.5)',
-          borderRadius:'16px', padding:'24px', textAlign:'center',
-        }}>
+        <div style={{ background:'rgba(34,197,94,0.12)', border:'2px solid rgba(34,197,94,0.5)', borderRadius:'16px', padding:'24px', textAlign:'center' }}>
           <div style={{ fontSize:'2rem', marginBottom:'10px' }}>🤝</div>
           <div style={{ fontSize:'1rem', fontWeight:800, color:'#fff', marginBottom:'6px' }}>
-            {pendingFriendReq.senderName
-              ? `${pendingFriendReq.senderName} wants to be your Crickle friend!`
-              : 'Friend request received!'}
+            {pendingFriendReq.senderName ? `${pendingFriendReq.senderName} wants to be your Crickle friend!` : 'Friend request received!'}
           </div>
-          <p style={{ fontSize:'0.8rem', color:'rgba(210,240,255,0.6)', marginBottom:'20px' }}>
-            Accept to challenge each other and track your rivalry.
-          </p>
+          <p style={{ fontSize:'0.8rem', color:'rgba(210,240,255,0.6)', marginBottom:'20px' }}>Accept to challenge each other and track your rivalry.</p>
           {!authUser ? (
-            <>
-              <p style={{ fontSize:'0.78rem', color:'rgba(210,240,255,0.5)', marginBottom:'14px' }}>Sign in first to accept.</p>
-              <GoogleBtn onPress={handleGoogleSignIn} signingIn={signingIn} />
-            </>
+            <><p style={{ fontSize:'0.78rem', color:'rgba(210,240,255,0.5)', marginBottom:'14px' }}>Sign in first to accept.</p><GoogleBtn onPress={handleGoogleSignIn} signingIn={signingIn} /></>
           ) : (
             <div style={{ display:'flex', gap:'10px' }}>
-              <button onClick={acceptFriend} style={{
-                flex:1, padding:'13px',
-                background:'linear-gradient(135deg,#22c55e,#16a34a)',
-                border:'none', borderRadius:'12px', color:'#fff',
-                fontWeight:900, fontSize:'0.95rem', cursor:'pointer',
-                fontFamily:"'Outfit',system-ui,sans-serif",
-              }}>✅ Accept</button>
-              <button onClick={() => setPendingFriendReq(null)} style={{
-                flex:1, padding:'13px', background:'transparent',
-                border:'1px solid rgba(255,255,255,0.2)', borderRadius:'12px',
-                color:'rgba(210,240,255,0.6)', fontWeight:700, fontSize:'0.9rem',
-                cursor:'pointer', fontFamily:"'Outfit',system-ui,sans-serif",
-              }}>Decline</button>
+              <button onClick={acceptFriend} className="active:scale-95 transition-transform" style={{ flex:1, padding:'13px', background:'linear-gradient(135deg,#22c55e,#16a34a)', border:'none', borderRadius:'12px', color:'#fff', fontWeight:900, fontSize:'0.95rem', cursor:'pointer', fontFamily:"'Outfit',system-ui,sans-serif" }}>✅ Accept</button>
+              <button onClick={() => setPendingFriendReq(null)} className="active:scale-95 transition-transform" style={{ flex:1, padding:'13px', background:'transparent', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'12px', color:'rgba(210,240,255,0.6)', fontWeight:700, fontSize:'0.9rem', cursor:'pointer', fontFamily:"'Outfit',system-ui,sans-serif" }}>Decline</button>
             </div>
           )}
         </div>
@@ -110,9 +91,7 @@ export default function H2HTab() {
     <div style={{ textAlign:'center', padding:'40px 20px' }}>
       <div style={{ fontSize:'2.5rem', marginBottom:'16px' }}>⚔️</div>
       <div style={{ fontSize:'1rem', fontWeight:800, color:'#fff', marginBottom:'8px' }}>Sign in to play H2H</div>
-      <p style={{ fontSize:'0.8rem', color:'rgba(210,240,255,0.55)', marginBottom:'24px', lineHeight:1.6 }}>
-        Add friends, challenge them to the same puzzle, and track your rivalry score.
-      </p>
+      <p style={{ fontSize:'0.8rem', color:'rgba(210,240,255,0.55)', marginBottom:'24px', lineHeight:1.6 }}>Add friends, challenge them to the same puzzle, and track your rivalry score.</p>
       <GoogleBtn onPress={handleGoogleSignIn} signingIn={signingIn} />
     </div>
   );
@@ -126,22 +105,27 @@ export default function H2HTab() {
     if (!friendship) { setH2hRivalryView(null); return null; }
 
     const oppName = friendship.user_a_uid === myUid ? friendship.user_b_name : friendship.user_a_name;
-    const aWins   = friendship.user_a_uid === myUid ? friendship.a_wins : friendship.b_wins;
-    const bWins   = friendship.user_a_uid === myUid ? friendship.b_wins : friendship.a_wins;
-
     const rivalChallenges = h2hChallenges.filter(c => c.friendship_id === friendship.id);
     const open      = rivalChallenges.filter(c => c.status === 'open');
     const completed = rivalChallenges.filter(c => c.status === 'completed');
 
+    // Dynamically calculate scores from completed matches
+    const aWins = completed.filter(c => c.winner_uid === myUid).length;
+    const bWins = completed.filter(c => c.winner_uid && c.winner_uid !== myUid && c.winner_uid !== 'draw').length;
+
     return (
       <div style={{ width:'100%' }}>
-        {/* Header */}
+        {/* Header with animated Refresh Button */}
         <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'16px' }}>
           <button onClick={() => setH2hRivalryView(null)} style={{ background:'transparent', border:'none', color:'rgba(210,240,255,0.6)', fontWeight:800, cursor:'pointer', fontSize:'0.85rem', padding:0 }}>← Back</button>
-          <button onClick={() => { fetchH2HChallenges(myUid); fetchFriends(myUid); }} style={{
-            marginLeft:'auto', background:'transparent', border:'1px solid rgba(255,255,255,0.15)',
-            borderRadius:'8px', padding:'5px 12px', color:'rgba(210,240,255,0.6)',
-            fontSize:'0.75rem', fontWeight:700, cursor:'pointer',
+          
+          <button 
+            onClick={() => { fetchH2HChallenges(myUid); fetchFriends(myUid); }} 
+            className="active:scale-95 transition-transform duration-100"
+            style={{
+              marginLeft:'auto', background:'transparent', border:'1px solid rgba(255,255,255,0.15)',
+              borderRadius:'8px', padding:'5px 12px', color:'rgba(210,240,255,0.6)',
+              fontSize:'0.75rem', fontWeight:700, cursor:'pointer',
           }}>↻ Refresh</button>
         </div>
 
@@ -161,8 +145,7 @@ export default function H2HTab() {
           </div>
         </div>
 
-        {/* Challenge button */}
-        <button onClick={() => createH2HChallenge(friendship)} style={{
+        <button onClick={() => createH2HChallenge(friendship)} className="active:scale-95 transition-transform" style={{
           width:'100%', padding:'14px', marginBottom:'16px',
           background:'linear-gradient(135deg,#22c55e,#16a34a)', border:'none',
           borderRadius:'12px', color:'#fff', fontWeight:900, fontSize:'0.95rem',
@@ -170,30 +153,41 @@ export default function H2HTab() {
           boxShadow:'0 4px 20px rgba(34,197,94,0.35)',
         }}>⚔️ Challenge {oppName}</button>
 
-        {/* Open challenges */}
-        {open.length > 0 && (
-          <div style={{ marginBottom:'16px' }}>
-            <div style={{ fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:'rgba(251,191,36,0.8)', marginBottom:'8px' }}>Open ({open.length})</div>
-            <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
-              {open.map(c => {
+        {/* Custom Tabs for Open/Completed */}
+        <div style={{ display:'flex', gap:'8px', marginBottom:'16px', background:'rgba(0,0,0,0.3)', padding:'4px', borderRadius:'10px' }}>
+          <button 
+            onClick={() => setSubTab('open')} 
+            style={{ flex:1, padding:'10px', background: subTab === 'open' ? 'rgba(255,255,255,0.1)' : 'transparent', border:'none', borderRadius:'8px', color: subTab === 'open' ? '#fff' : 'rgba(255,255,255,0.5)', fontWeight:700, fontSize:'0.8rem', cursor:'pointer' }}
+          >
+            Open ({open.length})
+          </button>
+          <button 
+            onClick={() => setSubTab('completed')} 
+            style={{ flex:1, padding:'10px', background: subTab === 'completed' ? 'rgba(255,255,255,0.1)' : 'transparent', border:'none', borderRadius:'8px', color: subTab === 'completed' ? '#fff' : 'rgba(255,255,255,0.5)', fontWeight:700, fontSize:'0.8rem', cursor:'pointer' }}
+          >
+            Completed ({completed.length})
+          </button>
+        </div>
+
+        {/* Tab Content: Open */}
+        {subTab === 'open' && (
+          <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+            {open.length === 0 ? (
+              <div style={{ textAlign:'center', padding:'20px', color:'rgba(255,255,255,0.4)', fontSize:'0.8rem' }}>No open challenges.</div>
+            ) : (
+              open.map(c => {
                 const isSender   = c.sender_uid === myUid;
                 const myPlayed   = isSender ? (c.sender_score?.won !== undefined) : (c.receiver_score?.won !== undefined);
                 const theyPlayed = isSender ? (c.receiver_score?.won !== undefined) : (c.sender_score?.won !== undefined);
                 return (
                   <div key={c.id} style={{ background:'rgba(0,30,15,0.8)', border:'1px solid rgba(251,191,36,0.25)', borderRadius:'12px', padding:'12px 14px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                     <div>
-                      <div style={{ fontSize:'0.82rem', fontWeight:800, color:'#fff' }}>
-                        {c.mode} {myPlayed ? `· ${c.target_player}` : '· ???'}
-                      </div>
-                      <div style={{ fontSize:'0.7rem', color:'rgba(210,240,255,0.5)', marginTop:'2px' }}>
-                        {myPlayed ? '✅ You played' : '⏳ Your turn'} · {theyPlayed ? `✅ ${oppName} played` : `⏳ ${oppName} pending`}
-                      </div>
+                      <div style={{ fontSize:'0.82rem', fontWeight:800, color:'#fff' }}>{c.mode} {myPlayed ? `· ${c.target_player}` : '· ???'}</div>
+                      <div style={{ fontSize:'0.7rem', color:'rgba(210,240,255,0.5)', marginTop:'2px' }}>{myPlayed ? '✅ You played' : '⏳ Your turn'} · {theyPlayed ? `✅ ${oppName} played` : `⏳ ${oppName} pending`}</div>
                     </div>
                     {!myPlayed && (
-                      <button onClick={() => playH2HChallenge(c)} style={{
-                        background:'#22c55e', color:'#fff', border:'none', borderRadius:'8px',
-                        padding:'7px 14px', fontWeight:800, cursor:'pointer', fontSize:'0.8rem',
-                        fontFamily:"'Outfit',system-ui,sans-serif",
+                      <button onClick={() => playH2HChallenge(c)} className="active:scale-95 transition-transform" style={{
+                        background:'#22c55e', color:'#fff', border:'none', borderRadius:'8px', padding:'7px 14px', fontWeight:800, cursor:'pointer', fontSize:'0.8rem', fontFamily:"'Outfit',system-ui,sans-serif",
                       }}>Play</button>
                     )}
                     {myPlayed && !theyPlayed && (
@@ -203,37 +197,31 @@ export default function H2HTab() {
                         if (IS_NATIVE) { try { await Share.share({ title:'Crickle H2H', text, dialogTitle:'Nudge your friend' }); } catch {} }
                         else if (navigator.share) { try { await navigator.share({ text }); } catch {} }
                         else { try { await navigator.clipboard.writeText(text); } catch {} }
-                      }} style={{
-                        background:'rgba(251,191,36,0.2)', border:'1px solid rgba(251,191,36,0.4)',
-                        color:'#fbbf24', borderRadius:'8px', padding:'7px 12px',
-                        fontWeight:700, cursor:'pointer', fontSize:'0.75rem',
-                        fontFamily:"'Outfit',system-ui,sans-serif",
+                      }} className="active:scale-95 transition-transform" style={{
+                        background:'rgba(251,191,36,0.2)', border:'1px solid rgba(251,191,36,0.4)', color:'#fbbf24', borderRadius:'8px', padding:'7px 12px', fontWeight:700, cursor:'pointer', fontSize:'0.75rem', fontFamily:"'Outfit',system-ui,sans-serif",
                       }}>Nudge 👋</button>
                     )}
                   </div>
                 );
-              })}
-            </div>
+              })
+            )}
           </div>
         )}
 
-        {/* Completed challenges */}
-        {completed.length > 0 && (
-          <div>
-            <div style={{ fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:'rgba(210,240,255,0.5)', marginBottom:'8px' }}>Completed ({completed.length})</div>
-            <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
-              {completed.map(c => {
+        {/* Tab Content: Completed */}
+        {subTab === 'completed' && (
+          <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+            {completed.length === 0 ? (
+              <div style={{ textAlign:'center', padding:'20px', color:'rgba(255,255,255,0.4)', fontSize:'0.8rem' }}>No completed challenges.</div>
+            ) : (
+              completed.map(c => {
                 const isSender   = c.sender_uid === myUid;
                 const myScore    = isSender ? c.sender_score   : c.receiver_score;
                 const theirScore = isSender ? c.receiver_score : c.sender_score;
                 const iWon       = c.winner_uid === myUid;
-                const theyWon    = c.winner_uid && c.winner_uid !== myUid;
+                const theyWon    = c.winner_uid && c.winner_uid !== myUid && c.winner_uid !== 'draw';
                 return (
-                  <div key={c.id} style={{
-                    background:'rgba(0,30,15,0.8)',
-                    border:`1px solid ${iWon ? 'rgba(34,197,94,0.25)' : theyWon ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.08)'}`,
-                    borderRadius:'12px', padding:'12px 14px',
-                  }}>
+                  <div key={c.id} style={{ background:'rgba(0,30,15,0.8)', border:`1px solid ${iWon ? 'rgba(34,197,94,0.25)' : theyWon ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.08)'}`, borderRadius:'12px', padding:'12px 14px' }}>
                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                       <div>
                         <div style={{ fontSize:'0.82rem', fontWeight:800, color:'#fff' }}>{c.mode} · {c.target_player}</div>
@@ -248,14 +236,8 @@ export default function H2HTab() {
                     </div>
                   </div>
                 );
-              })}
-            </div>
-          </div>
-        )}
-
-        {open.length === 0 && completed.length === 0 && (
-          <div style={{ textAlign:'center', padding:'30px', color:'rgba(255,255,255,0.4)', fontSize:'0.85rem' }}>
-            No challenges yet. Challenge {oppName} above!
+              })
+            )}
           </div>
         )}
       </div>
@@ -265,15 +247,14 @@ export default function H2HTab() {
   // ── Friends list ──
   return (
     <div style={{ width:'100%' }}>
-      {/* Add a Friend */}
       <button onClick={async () => {
         const link = await generateFriendRequestLink();
-        if (!link) { alert('Friend request API unavailable. Make sure the app is deployed to Vercel.'); return; }
+        if (!link) { alert('Friend request API unavailable.'); return; }
         const text = `${myName} wants to be your Crickle friend 🏏 — accept here:\n${link}`;
         if (IS_NATIVE) { try { await Share.share({ title:'Crickle Friend Request', text, dialogTitle:'Share friend request' }); } catch {} }
         else if (navigator.share) { try { await navigator.share({ text }); } catch {} }
-        else { try { await navigator.clipboard.writeText(text); alert('Link copied! Share it with your friend.'); } catch {} }
-      }} style={{
+        else { try { await navigator.clipboard.writeText(text); alert('Link copied!'); } catch {} }
+      }} className="active:scale-95 transition-transform duration-100" style={{
         width:'100%', padding:'14px', marginBottom:'16px',
         background:'linear-gradient(135deg,#22c55e,#16a34a)', border:'none',
         borderRadius:'12px', color:'#fff', fontWeight:900, fontSize:'0.95rem',
@@ -290,8 +271,12 @@ export default function H2HTab() {
         <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
           {friends.map(f => {
             const oppName = f.user_a_uid === myUid ? f.user_b_name : f.user_a_name;
-            const myWins  = f.user_a_uid === myUid ? f.a_wins : f.b_wins;
-            const thWins  = f.user_a_uid === myUid ? f.b_wins : f.a_wins;
+            
+            // Dynamically calculate scores for the main list
+            const fRival = h2hChallenges.filter(c => c.friendship_id === f.id && c.status === 'completed');
+            const myWins  = fRival.filter(c => c.winner_uid === myUid).length;
+            const thWins  = fRival.filter(c => c.winner_uid && c.winner_uid !== myUid && c.winner_uid !== 'draw').length;
+            
             const pending = h2hChallenges.filter(c =>
               c.friendship_id === f.id && c.status === 'open' && (
                 (c.sender_uid   === myUid && c.sender_score?.won   === undefined) ||
@@ -314,17 +299,21 @@ export default function H2HTab() {
                     {myWins + thWins === 0 ? 'No games played yet' : `${myWins + thWins} game${myWins + thWins !== 1 ? 's' : ''} played`}
                   </div>
                 </div>
+                
+                {/* Flex-column layout so score and pending badge stack vertically */}
                 <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-                  {(myWins + thWins) > 0 && (
-                    <div style={{ fontSize:'1.4rem', fontWeight:900, lineHeight:1, color: myWins > thWins ? '#22c55e' : myWins < thWins ? '#f87171' : '#fbbf24' }}>
-                      {myWins}–{thWins}
-                    </div>
-                  )}
-                  {pending > 0 && (
-                    <span style={{ background:'rgba(251,191,36,0.2)', border:'1px solid rgba(251,191,36,0.4)', color:'#fbbf24', borderRadius:'6px', padding:'3px 8px', fontSize:'0.65rem', fontWeight:700 }}>
-                      {pending} pending
-                    </span>
-                  )}
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'4px' }}>
+                    {(myWins + thWins) > 0 && (
+                      <div style={{ fontSize:'1.4rem', fontWeight:900, lineHeight:1, color: myWins > thWins ? '#22c55e' : myWins < thWins ? '#f87171' : '#fbbf24' }}>
+                        {myWins}–{thWins}
+                      </div>
+                    )}
+                    {pending > 0 && (
+                      <span style={{ background:'rgba(251,191,36,0.2)', border:'1px solid rgba(251,191,36,0.4)', color:'#fbbf24', borderRadius:'6px', padding:'3px 8px', fontSize:'0.65rem', fontWeight:700, whiteSpace:'nowrap' }}>
+                        {pending} pending
+                      </span>
+                    )}
+                  </div>
                   <span style={{ color:'rgba(255,255,255,0.3)' }}>→</span>
                 </div>
               </button>
