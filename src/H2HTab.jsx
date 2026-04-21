@@ -289,33 +289,36 @@ export default function H2HTab() {
                 width:'100%', background:'rgba(0,30,15,0.8)',
                 border:`1px solid ${pending > 0 ? 'rgba(251,191,36,0.3)' : 'rgba(255,255,255,0.1)'}`,
                 borderRadius:'14px', padding:'16px',
-                display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px',
+                display:'flex', justifyContent:'space-between', alignItems:'flex-start',
                 cursor:'pointer', fontFamily:"'Outfit',system-ui,sans-serif", textAlign:'left'
               }}>
-                {/* Left Side: Names (Truncates if too long) */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize:'0.95rem', fontWeight:800, color:'#fff', marginBottom:'4px', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                    {myName} vs {oppName}
+                {/* Left Side: Names & Games Info */}
+                <div style={{ flex: 1, minWidth: 0, paddingRight: '12px' }}>
+                  <div style={{ fontSize:'1.05rem', fontWeight:800, color:'#fff', marginBottom:'4px', overflowWrap:'break-word' }}>
+                    {myName}
                   </div>
-                  <div style={{ fontSize:'0.72rem', color:'rgba(210,240,255,0.5)' }}>
+                  <div style={{ fontSize:'0.8rem', fontWeight:800, color:'rgba(255,255,255,0.3)', marginBottom:'4px' }}>
+                    VS
+                  </div>
+                  <div style={{ fontSize:'1.05rem', fontWeight:800, color:'#fff', marginBottom:'12px', overflowWrap:'break-word' }}>
+                    {oppName}
+                  </div>
+                  <div style={{ fontSize:'0.75rem', color:'rgba(210,240,255,0.5)' }}>
                     {myWins + thWins === 0 ? 'No games played yet' : `${myWins + thWins} game${myWins + thWins !== 1 ? 's' : ''} played`}
                   </div>
                 </div>
                 
-                {/* Right Side: Score Pill & Pending Badge (Never shrinks or wraps) */}
-                <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'6px', flexShrink: 0 }}>
-                  {(myWins + thWins) > 0 && (
-                    <div style={{
-                      background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '6px'
-                    }}>
-                      <span style={{ fontSize:'1.1rem', fontWeight:900, color: myWins >= thWins ? '#22c55e' : '#fff' }}>{myWins}</span>
-                      <span style={{ fontSize:'0.8rem', color:'rgba(255,255,255,0.3)' }}>-</span>
-                      <span style={{ fontSize:'1.1rem', fontWeight:900, color: thWins >= myWins ? (thWins > myWins ? '#f87171' : '#22c55e') : '#fff' }}>{thWins}</span>
-                    </div>
-                  )}
+                {/* Right Side: Scorecard & Pending Status */}
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', flexShrink: 0 }}>
+                   {(myWins + thWins) > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', marginBottom: '16px' }}>
+                         <span style={{ fontSize:'1.2rem', fontWeight:900, color: myWins >= thWins ? '#22c55e' : '#fff', lineHeight: 1 }}>{myWins}</span>
+                         <span style={{ fontSize:'1.2rem', fontWeight:900, color: 'transparent', lineHeight: 1 }}>-</span> {/* Spacer for VS row */}
+                         <span style={{ fontSize:'1.2rem', fontWeight:900, color: thWins >= myWins ? (thWins > myWins ? '#f87171' : '#22c55e') : '#fff', lineHeight: 1 }}>{thWins}</span>
+                      </div>
+                   )}
                   {pending > 0 && (
-                    <span style={{ background:'rgba(251,191,36,0.2)', border:'1px solid rgba(251,191,36,0.4)', color:'#fbbf24', borderRadius:'6px', padding:'3px 8px', fontSize:'0.65rem', fontWeight:700 }}>
+                    <span style={{ background:'rgba(251,191,36,0.2)', border:'1px solid rgba(251,191,36,0.4)', color:'#fbbf24', borderRadius:'6px', padding:'4px 8px', fontSize:'0.65rem', fontWeight:700, whiteSpace:'nowrap' }}>
                       {pending} pending
                     </span>
                   )}
