@@ -98,8 +98,9 @@ export const HINTS = [
 // ─────────────────────────────────────────────────────────────
 export const getDaysSinceEpoch = () => {
   const now = new Date();
-  const ist = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-  return Math.floor(ist.getTime() / 86400000);
+  // Unbreakable Timezone Math: Add exactly 5.5 hours to UTC to force IST epoch
+  const istMs = now.getTime() + 19800000; 
+  return Math.floor(istMs / 86400000);
 };
 export const getTodayKey = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
@@ -270,6 +271,7 @@ export const freshGameState = (format, isDaily = false) => {
     revealBanner: null,
     isDaily,
     isEasy:       false,
+    format, // FIX: explicitly store the format so the UI knows what mode it is
   };
 };
 
@@ -372,13 +374,21 @@ export default function App() {
     let savedDaily = null;
     try {
       const saved = JSON.parse(localStorage.getItem('crickle_daily_state_v2'));
-      if (saved?.date === getTodayKey()) savedDaily = saved.game;
+      if (saved?.date === getTodayKey()) {
+        savedDaily = saved.game;
+        // FIX: Patch active daily sessions that are missing their format
+        if (savedDaily && !savedDaily.format) savedDaily.format = dMode; 
+      }
     } catch {}
     let savedEndless = {};
     try { savedEndless = JSON.parse(localStorage.getItem('crickle_endless_state_v1') || '{}'); } catch {}
     const restoreOrFresh = (format) => {
       const s = savedEndless[format];
-      if (s && s.status === 'playing' && s.guesses?.length > 0 && s.target) return s;
+      if (s && s.status === 'playing' && s.guesses?.length > 0 && s.target) {
+        // FIX: Patch active endless sessions that are missing their format
+        if (!s.format) s.format = format; 
+        return s;
+      }
       return freshGameState(format, false);
     };
     return {
