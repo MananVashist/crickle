@@ -2,7 +2,7 @@
 import { Share } from '@capacitor/share';
 import { CrickleContext } from './context';
 import {
-  IS_NATIVE, POOL, EASY_POOL, defaultStats, saveStats,
+  IS_NATIVE, POOL, defaultStats, saveStats,
   freshEasyGame, formatScore,
 } from './App';
 import H2HTab from './H2HTab';

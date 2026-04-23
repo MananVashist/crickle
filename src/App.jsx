@@ -223,13 +223,6 @@ export const POOL = {
   T20:  normalizePlayers(t20PlayersRaw,  'T20'),
 };
 
-const _easyNames = new Set();
-export const EASY_POOL = [
-  ...POOL.Test.filter(p => ['1','2'].includes(String(p.tier))).map(p => ({ ...p, easyFormat: 'Test' })),
-  ...POOL.ODI.filter(p  => ['1','2'].includes(String(p.tier))).map(p => ({ ...p, easyFormat: 'ODI' })),
-  ...POOL.T20.filter(p  => ['1','2'].includes(String(p.tier))).map(p => ({ ...p, easyFormat: 'T20' })),
-].filter(p => { if (_easyNames.has(p.name)) return false; _easyNames.add(p.name); return true; });
-
 export const getDailyPlayer = (format) => {
   const pool = POOL[format];
   return pool[getDaysSinceEpoch() % pool.length];
@@ -276,9 +269,16 @@ export const freshGameState = (format, isDaily = false) => {
 };
 
 export const freshEasyGame = () => {
-  const target = EASY_POOL[Math.floor(Math.random() * EASY_POOL.length)];
-  return { target, guesses: [], status: 'playing', hintsUsed: 0, revealBanner: null,
-           isDaily: false, isEasy: true, isH2H: false, format: target.easyFormat };
+  // 1. Pick format first, no merged pools
+  const format = ['Test', 'ODI', 'T20'][Math.floor(Math.random() * 3)];
+  // 2. Filter ONLY that specific format for Tier 1 & 2
+  const easyPool = POOL[format].filter(p => ['1', '2'].includes(String(p.tier)));
+  const target = easyPool[Math.floor(Math.random() * easyPool.length)];
+  
+  return { 
+    target, guesses: [], status: 'playing', hintsUsed: 0, revealBanner: null,
+    isDaily: false, isEasy: true, isH2H: false, format 
+  };
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -978,7 +978,7 @@ export default function App() {
   };
 
   // ── Derived values ──
-  const pool        = activeTab === 'easy' ? EASY_POOL : activeTab === 'h2h' ? (POOL[games.H2H?.format] || POOL.Test) : POOL[displayMode];
+  const pool        = activeTab === 'easy' ? POOL[displayMode].filter(p => ['1', '2'].includes(String(p.tier))) : activeTab === 'h2h' ? (POOL[games.H2H?.format] || POOL.Test) : POOL[displayMode];
   const suggestions = (pool || []).filter(p => p.name.toLowerCase().includes(search.toLowerCase()) && !game?.guesses?.find(g => g.name === p.name)).slice(0, 8);
   const hintTexts   = !game?.target?.trivia ? [] : ['hint1','hint2','hint3'].slice(0, game.hintsUsed).map(k => game.target.trivia[k] ?? '');
   const cols        = COLS.map(c => ({ ...c, label: c.baseLabel }));
