@@ -1,35 +1,82 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    
-    <title>Crickle | The Daily Cricket Guessing Game</title>
-    <meta name="title" content="Crickle | The Daily Cricket Guessing Game">
-    <meta name="description" content="Guess the mystery cricketer in 8 tries. Play the daily puzzle or challenge your friends in head-to-head multiplayer.">
-    <meta name="keywords" content="cricket guessing game, cricket wordle, guess the cricketer, cricket quiz, daily cricket puzzle">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://crickle-game.vercel.app/">
-    <meta property="og:title" content="Crickle | The Daily Cricket Guessing Game">
-    <meta property="og:description" content="Guess the mystery cricketer in 8 tries. Can you beat my score?">
-    <meta property="og:image" content="https://crickle-game.vercel.app/og-image.png">
+		<!-- ===================== PRIMARY META ===================== -->
+		<title>Crickle | The Daily Cricket Guessing Game</title>
+		<meta name="title" content="Crickle | The Daily Cricket Guessing Game">
+			<meta name="description" content="Guess the mystery cricketer in 8 tries. A new puzzle every day — Test, ODI, and T20 players from across the world. Play free, no login needed.">
+				<meta name="keywords" content="cricket guessing game, cricket wordle, guess the cricketer, cricket quiz, daily cricket puzzle, crickle, cricket brain teaser, cricket player quiz, wordle cricket">
+					<meta name="robots" content="index, follow">
+						<meta name="author" content="Crickle">
+							<meta name="theme-color" content="#1a3a2a">
+								<link rel="canonical" href="https://crickle-game.vercel.app/">
 
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://crickle-game.vercel.app/">
-    <meta property="twitter:title" content="Crickle | The Daily Cricket Guessing Game">
-    <meta property="twitter:description" content="Guess the mystery cricketer in 8 tries. Can you beat my score?">
-    <meta property="twitter:image" content="https://crickle-game.vercel.app/og-image.png">
+									<!-- ===================== OPEN GRAPH ===================== -->
+									<meta property="og:type" content="website">
+										<meta property="og:url" content="https://crickle-game.vercel.app/">
+											<meta property="og:title" content="Crickle | The Daily Cricket Guessing Game">
+												<meta property="og:description" content="Guess the mystery cricketer in 8 tries. A new puzzle every day — Test, ODI, and T20 players. Can you beat my score?">
+													<meta property="og:image" content="https://crickle-game.vercel.app/og-image.png">
+														<meta property="og:image:width" content="1200">
+															<meta property="og:image:height" content="630">
+																<meta property="og:image:alt" content="Crickle — The Daily Cricket Guessing Game">
+																	<meta property="og:site_name" content="Crickle">
+																		<meta property="og:locale" content="en_US">
 
-    <meta name="apple-itunes-app" content="app-id=YOUR_APP_ID">
+																			<!-- ===================== TWITTER / X ===================== -->
+																			<meta name="twitter:card" content="summary_large_image">
+																				<meta name="twitter:url" content="https://crickle-game.vercel.app/">
+																					<meta name="twitter:title" content="Crickle | The Daily Cricket Guessing Game">
+																						<meta name="twitter:description" content="Guess the mystery cricketer in 8 tries. A new puzzle every day. Can you beat my score?">
+																							<meta name="twitter:image" content="https://crickle-game.vercel.app/og-image.png">
+																								<meta name="twitter:image:alt" content="Crickle — The Daily Cricket Guessing Game">
 
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+																									<!-- ===================== ANDROID APP ===================== -->
+																									<meta name="google-play-app" content="app-id=com.crickleapp">
+
+																										<!-- ===================== iOS APP (add once live on App Store) ===================== -->
+																										<!-- <meta name="apple-itunes-app" content="app-id=YOUR_APP_STORE_ID"> -->
+
+																										<!-- ===================== JSON-LD STRUCTURED DATA ===================== -->
+																										<script type="application/ld+json">
+																											{
+																											"@context": "https://schema.org",
+																											"@type": "WebApplication",
+																											"name": "Crickle",
+																											"url": "https://crickle-game.vercel.app/",
+																											"description": "Guess the mystery cricketer in 8 tries. A new puzzle every day featuring Test, ODI, and T20 players from around the world. Free to play, no login needed.",
+																											"applicationCategory": "GameApplication",
+																											"genre": "Puzzle",
+																											"operatingSystem": "Web, Android",
+																											"browserRequirements": "Requires JavaScript. Works in all modern browsers.",
+																											"offers": {
+																											"@type": "Offer",
+																											"price": "0",
+																											"priceCurrency": "USD"
+																											},
+																											"author": {
+																											"@type": "Organization",
+																											"name": "Crickle"
+																											},
+																											"image": "https://crickle-game.vercel.app/og-image.png",
+																											"screenshot": "https://crickle-game.vercel.app/og-image.png",
+																											"inLanguage": "en",
+																											"isAccessibleForFree": true,
+																											"keywords": "cricket, guessing game, wordle, daily puzzle, cricket quiz"
+																											}
+																										</script>
+
+																										<!-- ===================== FAVICONS ===================== -->
+																										<link rel="icon" type="image/x-icon" href="/favicon.ico" />
+																										<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+																										<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+																										<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+																									</head>
+	<body>
+		<div id="root"></div>
+		<script type="module" src="/src/main.jsx"></script>
+	</body>
 </html>

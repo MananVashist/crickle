@@ -264,17 +264,19 @@ export default function MenuScreen() {
             {stats.gamesPlayed > 0 && (
               <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
                 <button onClick={async () => {
-                  const baseUrl   = typeof window !== 'undefined' ? window.location.origin : 'crickle.app';
                   const statsText = [
-                    `I\u2019m playing Crickle 🏏`, ``,
-                    stats.streak > 0 ? `🔥 ${stats.streak} game streak` : `No active streak`,
+                    `My Crickle Stats 🏏`, ``,
+                    stats.streak > 0 ? `🔥 ${stats.streak}-game win streak` : `No active streak`,
                     `🏆 Win rate: ${winRate}%`,
                     `🎯 Avg guesses: ${avgGuesses}`,
+                    stats.bestGuesses ? `⚡ Best game: ${stats.bestGuesses} guess${stats.bestGuesses !== 1 ? 'es' : ''}` : null,
+                    stats.dailyStreak > 0 ? `📅 Daily streak: ${stats.dailyStreak}` : null,
                     `💡 Hint rate: ${hintRate}%`,
                     `🎮 ${stats.gamesPlayed} games played`, ``,
-                    `Think you can beat that? Share yours 👇`,
-                    baseUrl,
-                  ].join('\n');
+                    `Think you can beat that? Play at:`,
+                    `🌐 https://crickle-game.vercel.app`,
+                    `📱 https://play.google.com/store/apps/details?id=com.crickleapp`,
+                  ].filter(Boolean).join('\n');
                   if (IS_NATIVE) {
                     try { await Share.share({ title:'Crickle Stats 🏏', text: statsText, dialogTitle:'Share your stats' }); } catch {}
                   } else {
@@ -339,7 +341,7 @@ export default function MenuScreen() {
         <div style={{ marginTop:'auto', display:'flex', flexDirection:'column', alignItems:'center', width:'100%' }}>
           {!IS_NATIVE && menuTab === 'play' && playFlow === 'main' && (
             <div style={{ display:'flex', gap:'12px', justifyContent:'center', width:'100%', marginTop:'30px' }}>
-              <a href="#" target="_blank" rel="noreferrer">
+              <a href="https://play.google.com/store/apps/details?id=com.crickleapp" target="_blank" rel="noreferrer">
                 <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Get it on Google Play" style={{ height:'42px' }} />
               </a>
             </div>

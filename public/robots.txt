@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://crickle-game.vercel.app/sitemap.xml

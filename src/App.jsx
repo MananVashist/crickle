@@ -819,15 +819,16 @@ export default function App() {
     const tries    = game.guesses.length;
     const hintsStr = game.hintsUsed === 0 ? 'no hints' : `${game.hintsUsed} hint${game.hintsUsed > 1 ? 's' : ''}`;
     const BASE     = 'https://crickle-game.vercel.app';
+    const STORE    = 'https://play.google.com/store/apps/details?id=com.crickleapp';
     let text;
     if (game.isDaily) {
       text = won
-        ? `Crickle Daily 🏏 — Completed today's ${displayMode} challenge in ${tries}/${MAX_GUESSES} guesses with ${hintsStr}. Can you do better?\n${BASE}`
-        : `Crickle Daily 🏏 — Today's ${displayMode} challenge got me. Give it a shot!\n${BASE}`;
+        ? `Crickle Daily 🏏 — Completed today's ${displayMode} challenge in ${tries}/${MAX_GUESSES} guesses with ${hintsStr}. Can you do better?\n🌐 ${BASE}\n📱 ${STORE}`
+        : `Crickle Daily 🏏 — Today's ${displayMode} challenge got me. Give it a shot!\n🌐 ${BASE}\n📱 ${STORE}`;
     } else {
       text = won
-        ? `Crickle 🏏 — Guessed ${game.target.name} in ${tries}/${MAX_GUESSES} guesses with ${hintsStr}. I guess I'm good at this game 😏\n${BASE}`
-        : `Crickle 🏏 — Couldn't get this one. The ${displayMode} cricket Wordle, give it a shot!\n${BASE}`;
+        ? `Crickle 🏏 — Guessed ${game.target.name} in ${tries}/${MAX_GUESSES} guesses with ${hintsStr}. I guess I'm good at this game 😏\n🌐 ${BASE}\n📱 ${STORE}`
+        : `Crickle 🏏 — Couldn't get this one. The ${displayMode} cricket Wordle, give it a shot!\n🌐 ${BASE}\n📱 ${STORE}`;
     }
     if (IS_NATIVE) {
       try { await Share.share({ title:'Crickle 🏏', text, dialogTitle:'Share your score' }); } catch {}

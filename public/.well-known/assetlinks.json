@@ -1,8 +1,10 @@
-[{
-  "relation": ["delegate_permission/common.handle_all_urls"],
-  "target": {
-    "namespace": "android_app",
-    "package_name": "com.crickleapp",
-    "sha256_cert_fingerprints": ["0E:18:FF:BF:9A:29:62:9E:04:12:A5:C8:BC:BB:5D:59:76:09:28:33:5C:18:8C:A9:98:0B:4C:C1:03:5A:AA:2F"]
-  }
-}]
+[
+    {
+        "relation": [ "delegate_permission/common.handle_all_urls" ],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "com.crickleapp",
+            "sha256_cert_fingerprints": [ "3F:D3:AB:5A:C4:16:55:75:39:13:33:4D:C6:3E:A9:75:5F:67:C5:C9:FB:70:65:55:7C:6A:36:5B:D9:8B:68:C9" ]
+        }
+    }
+]
