@@ -250,7 +250,7 @@ export default function H2HTab() {
       <button onClick={async () => {
         const link = await generateFriendRequestLink();
         if (!link) { alert('Friend request API unavailable.'); return; }
-        const text = `${myName} wants to be your Crickle friend 🏏 — accept here:\n${link}`;
+        const text = `${myName} wants to be your Crickle friend 🏏 — accept here:\n${link}\n\nDownload the app: https://play.google.com/store/apps/details?id=com.crickleapp`;
         if (IS_NATIVE) { try { await Share.share({ title:'Crickle Friend Request', text, dialogTitle:'Share friend request' }); } catch {} }
         else if (navigator.share) { try { await navigator.share({ text }); } catch {} }
         else { try { await navigator.clipboard.writeText(text); alert('Link copied!'); } catch {} }

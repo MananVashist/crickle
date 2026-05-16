@@ -432,9 +432,9 @@ export default function GameScreen() {
                         display:'flex', alignItems:'center', justifyContent:'center', gap:'8px',
                         fontFamily:"'Outfit',system-ui,sans-serif",
                       }}>
-                        <span>{game.hintsUsed === 0 ? '💡' : '📺'}</span>
+                        <span>{'📺'}</span>
                         <span style={{ fontSize:'0.82rem', fontWeight:800, color: HINTS[game.hintsUsed].color }}>
-                          {game.hintsUsed === 0 ? 'Use Free Hint' : `Watch Ad · Hint ${game.hintsUsed + 1}`}
+                          {`Watch Ad · Hint ${game.hintsUsed + 1}`}
                         </span>
                       </button>
                     )}

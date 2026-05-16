@@ -88,7 +88,7 @@ export const normBowl = (raw) => ({
 export const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 export const HINTS = [
-  { btnLabel:'💡 Use Free Hint',      revealInsults:["Already reaching for hints? Embarrassing. Truly. 🫠","One guess and you need help? Absolutely pathetic.","Need a hint already? Do you even watch cricket?","Free hint used. Your ancestors weep.","Hint 1. Wow. You really have no idea, do you.","Couldn't even try? Classic. Absolutely classic.","One hint in and already lost. This is tragic."], color:'#60a5fa', dimColor:'rgba(59,130,246,0.12)', borderColor:'rgba(59,130,246,0.35)' },
+  { btnLabel:'📺 Watch Ad · Hint 1',      revealInsults:["Already reaching for hints? Embarrassing. Truly. 🫠","One guess and you need help? Absolutely pathetic.","Need a hint already? Do you even watch cricket?","Free hint used. Your ancestors weep.","Hint 1. Wow. You really have no idea, do you.","Couldn't even try? Classic. Absolutely classic.","One hint in and already lost. This is tragic."], color:'#60a5fa', dimColor:'rgba(59,130,246,0.12)', borderColor:'rgba(59,130,246,0.35)' },
   { btnLabel:'📺 Watch Ad · Hint 2',  revealInsults:["TWO hints?! You are a disgrace to cricket fans everywhere. 💀","Two hints used. Absolutely fucking shambolic.","You needed two hints for this? Delete the app.","Two hints. I hope nobody you know finds out about this.","Two hints in and still guessing? Incredible failure.","Your cricket knowledge is genuinely concerning. Two hints."], color:'#fb923c', dimColor:'rgba(34,197,94,0.12)', borderColor:'rgba(34,197,94,0.35)' },
   { btnLabel:'📺 Watch Ad · Hint 3',  revealInsults:["ALL THREE HINTS USED. Shambolic. Absolutely shambolic. 🚨","Three hints. THREE. Uninstall. Now.","You used all three hints and you're STILL guessing? Genuinely impressive failure.","All three hints. I've lost all respect for you.","Three hints used. Your cricket knowledge is an embarrassment to the sport.","Three hints. If you don't get this now, just give up and go watch football."], color:'#f87171', dimColor:'rgba(239,68,68,0.12)', borderColor:'rgba(239,68,68,0.35)' },
 ];
@@ -791,13 +791,13 @@ export default function App() {
 
   const requestHint = async () => {
     if (!game || game.hintsUsed >= 3 || game.status !== 'playing') return;
-    if (game.hintsUsed === 0) {
-      if (!showHintWarning) { setShowHintWarning(true); return; }
-      setShowHintWarning(false);
-      patchGame({ hintsUsed: 1, revealBanner: pickRandom(HINTS[0].revealInsults) });
+    // Show warning first time before any hint
+    if (game.hintsUsed === 0 && !showHintWarning) {
+      setShowHintWarning(true);
       return;
     }
-    const idx = game.hintsUsed;
+    setShowHintWarning(false);
+    const idx = game.hintsUsed; // 0, 1, or 2
     if (IS_NATIVE) {
       try {
         if (adListenerRef.current) { adListenerRef.current.remove(); }
@@ -818,17 +818,24 @@ export default function App() {
     const won      = game.status === 'won' || game.status === 'won_dismissed';
     const tries    = game.guesses.length;
     const hintsStr = game.hintsUsed === 0 ? 'no hints' : `${game.hintsUsed} hint${game.hintsUsed > 1 ? 's' : ''}`;
-    const BASE     = 'https://crickle-game.vercel.app';
-    const STORE    = 'https://play.google.com/store/apps/details?id=com.crickleapp';
-    let text;
+    const BASE  = 'https://crickle-game.vercel.app';
+    const STORE = 'https://play.google.com/store/apps/details?id=com.crickleapp';
+    const LINKS = `🌐 ${BASE}\n📱 ${STORE}`;
+    const HDR   = `Crickle | The Mystery Cricketer Guessing Game\nGuess the mystery cricketer in 8 tries\n\n`;
+
     if (game.isDaily) {
       text = won
-        ? `Crickle Daily 🏏 — Completed today's ${displayMode} challenge in ${tries}/${MAX_GUESSES} guesses with ${hintsStr}. Can you do better?\n🌐 ${BASE}\n📱 ${STORE}`
-        : `Crickle Daily 🏏 — Today's ${displayMode} challenge got me. Give it a shot!\n🌐 ${BASE}\n📱 ${STORE}`;
+        ? `${HDR}I guessed today's mystery cricketer in ${tries} ${tries === 1 ? 'try' : 'tries'}! Think you can do better? Try it out or play H2H against your friends!\n\n${LINKS}`
+        : `${HDR}Today's daily puzzle got me. Think you can do better? Try it out or play H2H against your friends!\n\n${LINKS}`;
+    } else if (game.isEasy) {
+      const fmt = game.target?.easyFormat || game.format || '';
+      text = won
+        ? `${HDR}I guessed ${game.target.name} (${fmt}) in Easy mode in ${tries} ${tries === 1 ? 'try' : 'tries'} with ${hintsStr}. Play the easy mode and find out how you fare or try H2H with your friends!\n\n${LINKS}`
+        : `${HDR}Couldn't guess ${game.target.name} (${fmt}) in Easy mode. Play and find out how you fare or try H2H with your friends!\n\n${LINKS}`;
     } else {
       text = won
-        ? `Crickle 🏏 — Guessed ${game.target.name} in ${tries}/${MAX_GUESSES} guesses with ${hintsStr}. I guess I'm good at this game 😏\n🌐 ${BASE}\n📱 ${STORE}`
-        : `Crickle 🏏 — Couldn't get this one. The ${displayMode} cricket Wordle, give it a shot!\n🌐 ${BASE}\n📱 ${STORE}`;
+        ? `${HDR}I guessed ${game.target.name} in ${displayMode} in ${tries} ${tries === 1 ? 'try' : 'tries'} with ${hintsStr}. Play the endless mode and find out how you fare or try H2H with your friends!\n\n${LINKS}`
+        : `${HDR}Couldn't guess ${game.target.name} in ${displayMode} endless mode. Play and find out how you fare or try H2H with your friends!\n\n${LINKS}`;
     }
     if (IS_NATIVE) {
       try { await Share.share({ title:'Crickle 🏏', text, dialogTitle:'Share your score' }); } catch {}
