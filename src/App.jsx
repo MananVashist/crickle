@@ -825,12 +825,22 @@ export default function App() {
 
   useEffect(() => {
     if (!pendingFriendReq?.token || pendingFriendReq.senderName) return;
+    // Resolving an invite token now needs a signed-in caller, because the row
+    // it returns carries both players' names and uids — it used to be readable
+    // by anyone holding the link, or guessing.
+    //
+    // authUser is in the deps for that reason: opening an invite link while
+    // signed out is the NORMAL path (the link is how you arrive), so this must
+    // retry once sign-in completes rather than leaving the name blank forever.
+    // H2HTab falls back to "Friend request received!" in the meantime, so the
+    // accept flow works either way — this only restores the sender's name.
+    if (!authUser) return;
     authHeaders()
       .then(headers => fetch(`${FRIENDS_API}?token=${pendingFriendReq.token}`, { headers }))
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.user_a_name) setPendingFriendReq(prev => ({ ...prev, senderName: d.user_a_name })); })
       .catch(() => {});
-  }, [pendingFriendReq?.token]);
+  }, [pendingFriendReq?.token, pendingFriendReq?.senderName, authUser]);
 
   const handleDailyStart = () => { setActiveTab('daily'); setScreen('game'); };
 
