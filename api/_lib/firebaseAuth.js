@@ -78,7 +78,20 @@ export async function verifiedUid(req) {
     const admin = await getAdmin();
     const decoded = await admin.auth().verifyIdToken(match[1]);
     return decoded?.uid || null;
-  } catch {
+  } catch (err) {
+    // Logged, and the two causes are told apart deliberately.
+    //
+    // A rejected token and a broken verifier both produce 401, which makes them
+    // indistinguishable from outside — and they could not be more different: one
+    // is the check working, the other is every signed-in user locked out of a
+    // live app. Swallowing this silently meant a deployment could look correctly
+    // secured while being entirely broken, so the distinction is printed.
+    const msg = err?.message || String(err);
+    if (/environment variables|credential|initializeApp/i.test(msg)) {
+      console.error(`[auth] VERIFIER BROKEN — every signed-in user will get 401: ${msg}`);
+    } else {
+      console.warn(`[auth] token rejected: ${msg}`);
+    }
     return null;
   }
 }
