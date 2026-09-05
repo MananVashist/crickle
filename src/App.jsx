@@ -35,6 +35,7 @@ export const API_BASE = typeof window !== 'undefined' && window?.Capacitor?.isNa
 export const FRIENDS_API          = `${API_BASE}/api/h2h/friends`;
 export const CHALLENGE_NEW_API    = `${API_BASE}/api/h2h/challenge-new`;
 export const CHALLENGE_SUBMIT_API = `${API_BASE}/api/h2h/challenge-submit`;
+export const REGISTER_TOKEN_API   = `${API_BASE}/api/h2h/register-token`;
 
 // ─────────────────────────────────────────────────────────────
 // Constants
@@ -532,22 +533,23 @@ export default function App() {
           async ({ value: token }) => {
             console.log('FCM Token generated:', token);
             try {
-              const { createClient } = await import('@supabase/supabase-js');
-              const supabase = createClient(
-                import.meta.env.VITE_SUPABASE_URL,
-                import.meta.env.VITE_SUPABASE_ANON_KEY
-              );
-
-              const { error } = await supabase.from('crickle_user_tokens').upsert({
-                uid: authUser.uid,
-                fcm_token: token,
-                updated_at: new Date().toISOString(),
+              // Registered through our own API, not by writing the table from
+              // the browser. This was the ONLY direct table write the client
+              // made, and it is what forced the anon role to have access to
+              // crickle_user_tokens — which meant anyone with the public anon
+              // key (this repo is public) could read every player's FCM push
+              // token and uid. See api/h2h/register-token.js for why it could
+              // not be secured while the client kept doing the write.
+              const resp = await fetch(REGISTER_TOKEN_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: authUser.uid, fcm_token: token }),
               });
 
-              if (error) {
-                console.error('Failed to save token to Supabase:', error.message);
+              if (!resp.ok) {
+                console.error('Failed to register push token:', resp.status);
               } else {
-                console.log('Token successfully saved to crickle_user_tokens.');
+                console.log('Push token registered.');
               }
             } catch (dbError) {
               console.error('Supabase client error:', dbError);
@@ -584,26 +586,49 @@ export default function App() {
     }
   }, [menuTab, authUser, fetchFriends, fetchH2HChallenges]);
 
-  // ── Supabase realtime ──
+  // ── Head-to-head refresh (was a Supabase realtime subscription) ──
   useEffect(() => {
     if (!authUser) return;
-    let cleanup;
-    const setupRealtime = async () => {
-      try {
-        const { createClient } = await import('@supabase/supabase-js');
-        const sb  = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY);
-        const uid = authUser.uid;
-        const channel = sb.channel('h2h-realtime')
-          .on('postgres_changes', { event:'*', schema:'public', table:'crickle_challenges',  filter:`sender_uid=eq.${uid}`   }, () => fetchH2HChallenges(uid))
-          .on('postgres_changes', { event:'*', schema:'public', table:'crickle_challenges',  filter:`receiver_uid=eq.${uid}` }, () => fetchH2HChallenges(uid))
-          .on('postgres_changes', { event:'*', schema:'public', table:'crickle_friendships', filter:`user_a_uid=eq.${uid}`   }, () => fetchFriends(uid))
-          .on('postgres_changes', { event:'*', schema:'public', table:'crickle_friendships', filter:`user_b_uid=eq.${uid}`   }, () => fetchFriends(uid))
-          .subscribe();
-        cleanup = () => sb.removeChannel(channel);
-      } catch {}
+    // POLLING, not a Supabase realtime subscription.
+    //
+    // This used to open a postgres_changes channel on crickle_challenges and
+    // crickle_friendships with the public anon key. Realtime honours RLS, so
+    // that subscription only ever worked because RLS was OFF on both tables —
+    // which is the same reason anyone holding the anon key (this repo is
+    // public) could read the whole social graph and every player's push token.
+    //
+    // Those tables are now closed to the browser entirely, so the subscription
+    // would receive nothing. Silently receiving nothing is the worst option:
+    // there is no polling fallback in this app, so an incoming challenge would
+    // simply never appear until the player happened to act or reload, and it
+    // would look like the feature had broken rather than like it had been
+    // switched off. Polling the same API the rest of the screen already uses
+    // keeps the behaviour the player sees.
+    //
+    // 20s is a deliberate compromise: fast enough that a head-to-head challenge
+    // feels prompt, slow enough that it is three requests a minute per active
+    // player against a free tier — and FCM push already covers the case where
+    // the app is not open. Restoring true realtime means giving Supabase a real
+    // identity for these rows (third-party Firebase auth), after which RLS can
+    // carry owner policies and the subscription can be authorised rather than
+    // simply unguarded.
+    const POLL_MS = 20000;
+    const uid = authUser.uid;
+    const poll = () => {
+      // Skip while the tab is hidden: a backgrounded tab polling forever is
+      // how a free tier gets spent on nobody looking.
+      if (typeof document !== 'undefined' && document.hidden) return;
+      fetchH2HChallenges(uid);
+      fetchFriends(uid);
     };
-    setupRealtime();
-    return () => { cleanup?.(); };
+    const timer = setInterval(poll, POLL_MS);
+    // Catch up immediately on return, rather than waiting out the interval.
+    const onVisible = () => { if (!document.hidden) poll(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [authUser, fetchFriends, fetchH2HChallenges]);
 
   // ── Google sign-in ──

@@ -2,7 +2,20 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
+  // SERVICE ROLE, not the anon key.
+  //
+  // This is server-side code, so the anon key bought nothing here — and it was
+  // what made locking these tables down impossible. On 2026-09-05 the public
+  // anon key was found able to read crickle_user_tokens (FCM push tokens keyed
+  // to uids), crickle_friendships and crickle_challenges straight through
+  // PostgREST, because RLS was off on all three. It could not simply be turned
+  // on: Crickle authenticates with Firebase, so auth.uid() is NULL on every
+  // request and no owner policy can be written — and these routes would have
+  // been denied along with the attacker.
+  //
+  // Reading as service_role bypasses RLS, so RLS can now be enabled with NO
+  // policies: the browser gets nothing, these routes keep working unchanged.
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 export default async function handler(req, res) {
