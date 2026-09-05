@@ -1,4 +1,6 @@
 ﻿import { createClient } from '@supabase/supabase-js';
+import { requireUid } from '../_lib/firebaseAuth.js';
+
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -45,7 +47,13 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   if (req.method === 'POST') {
-    const { challenge_id, uid, score } = req.body;
+    // uid is the VERIFIED caller. The isSender / isReceiver checks below were
+    // comparing the challenge against a uid the caller had just declared about
+    // itself, which is not a check. Submitting a score as another player was
+    // possible; now it is not.
+    const uid = await requireUid(req, res);
+    if (!uid) return;
+    const { challenge_id, score } = req.body;
 
     if (!challenge_id || !uid || !score) {
       return res.status(400).json({ error: 'challenge_id, uid, and score required' });

@@ -1,4 +1,6 @@
 ﻿import { createClient } from '@supabase/supabase-js';
+import { requireUid } from '../_lib/firebaseAuth.js';
+
 import { randomBytes } from 'crypto';
 
 // 1. Initialize Supabase (This works perfectly)
@@ -29,7 +31,11 @@ export default async function handler(req, res) {
   // GET /api/h2h/challenge-new?uid=xxx
   // This will NOW WORK because there are no top-level Firebase imports to crash it
   if (req.method === 'GET') {
-    const { uid } = req.query;
+    // uid from the VERIFIED token, never the query string. This endpoint used
+    // to return any player's data to anyone who passed their uid.
+    const callerUid = await requireUid(req, res);
+    if (!callerUid) return;
+    const uid = callerUid;
     if (!uid) return res.status(400).json({ error: 'uid required' });
 
     const { data, error } = await supabase
@@ -46,12 +52,20 @@ export default async function handler(req, res) {
   // POST /api/h2h/challenge-new
   if (req.method === 'POST') {
     const {
-      friendship_id, sender_uid, sender_name,
+      friendship_id, sender_name,
       receiver_uid, receiver_name, mode, player_code, target_player,
     } = req.body;
 
-    if (!friendship_id || !sender_uid || !receiver_uid || !player_code) {
-      return res.status(400).json({ error: 'friendship_id, sender_uid, receiver_uid and player_code required' });
+    // The challenger is the VERIFIED caller. The isParticipant check below
+    // already guarded the friendship — but it was comparing against a
+    // sender_uid the caller supplied, so it proved nothing. It means something
+    // now.
+    const postUid = await requireUid(req, res);
+    if (!postUid) return;
+    const sender_uid = postUid;
+
+    if (!friendship_id || !receiver_uid || !player_code) {
+      return res.status(400).json({ error: 'friendship_id, receiver_uid and player_code required' });
     }
 
     const { data: friendship, error: friendshipErr } = await supabase

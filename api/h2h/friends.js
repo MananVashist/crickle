@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { randomBytes } from 'crypto';
+import { requireUid } from '../_lib/firebaseAuth.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -28,7 +29,15 @@ export default async function handler(req, res) {
   // GET /api/h2h/friends?uid=xxx
   // Returns all accepted friends for a user
   if (req.method === 'GET') {
-    const { uid, token } = req.query;
+    // The uid comes from the VERIFIED token, never from the query string.
+    // `GET /api/h2h/friends?uid=<anyone>` used to return that person's friend
+    // list to an unauthenticated caller. RLS cannot fix this: these routes run
+    // as service_role and bypass it by design, so the route itself is the only
+    // thing that can decide who a caller is allowed to be.
+    const callerUid = await requireUid(req, res);
+    if (!callerUid) return;
+    const { token } = req.query;
+    const uid = callerUid;
 
     // Resolve a friend request token (used when receiver opens the link)
     if (token) {
@@ -42,7 +51,6 @@ export default async function handler(req, res) {
       return res.json(data);
     }
 
-    if (!uid) return res.status(400).json({ error: 'uid required' });
 
     const { data, error } = await supabase
       .from('crickle_friendships')
@@ -56,14 +64,19 @@ export default async function handler(req, res) {
 
   // POST /api/h2h/friends
   if (req.method === 'POST') {
+    const callerUid = await requireUid(req, res);
+    if (!callerUid) return;
     const { action } = req.body;
 
     // action: 'request' — create a friend request link
     // Body: { action: 'request', sender_uid, sender_name }
     if (action === 'request') {
-      const { sender_uid, sender_name } = req.body;
-      if (!sender_uid || !sender_name) {
-        return res.status(400).json({ error: 'sender_uid and sender_name required' });
+      // sender_uid is the CALLER. It used to be taken from the body, which
+      // let anyone create a friend request as anybody else.
+      const sender_uid = callerUid;
+      const { sender_name } = req.body;
+      if (!sender_name) {
+        return res.status(400).json({ error: 'sender_name required' });
       }
 
       // Return existing pending request if one already exists
@@ -99,9 +112,12 @@ export default async function handler(req, res) {
     // action: 'accept' — receiver accepts the friend request
     // Body: { action: 'accept', token, receiver_uid, receiver_name }
     if (action === 'accept') {
-      const { token, receiver_uid, receiver_name } = req.body;
-      if (!token || !receiver_uid || !receiver_name) {
-        return res.status(400).json({ error: 'token, receiver_uid and receiver_name required' });
+      // receiver_uid is the CALLER, for the same reason as above: accepting a
+      // friend request on someone else's behalf should not be possible.
+      const receiver_uid = callerUid;
+      const { token, receiver_name } = req.body;
+      if (!token || !receiver_name) {
+        return res.status(400).json({ error: 'token and receiver_name required' });
       }
 
       // Look up the pending request

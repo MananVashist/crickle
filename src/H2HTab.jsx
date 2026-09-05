@@ -1,7 +1,7 @@
 ﻿import React, { useContext, useState } from 'react';
 import { Share } from '@capacitor/share';
 import { CrickleContext } from './context';
-import { IS_NATIVE, FRIENDS_API, formatScore } from './App';
+import { IS_NATIVE, FRIENDS_API, formatScore, authHeaders } from './App';
 
 const GoogleBtn = ({ onPress, signingIn }) => (
   <button onPointerDown={onPress} disabled={signingIn} style={{
@@ -51,11 +51,13 @@ export default function H2HTab() {
       try {
         const res = await fetch(FRIENDS_API, {
           method: 'POST',
-          headers: { 'Content-Type':'application/json' },
+          headers: await authHeaders({ 'Content-Type':'application/json' }),
           body: JSON.stringify({
             action: 'accept',
             token: pendingFriendReq.token,
-            receiver_uid: authUser.uid,
+            // receiver_uid is no longer sent: the server takes it from the
+            // verified token, so a friend request cannot be accepted on
+            // someone else's behalf.
             receiver_name: authUser.displayName || userName,
           }),
         });

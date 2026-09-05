@@ -1,4 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
+﻿import { createClient } from '@supabase/supabase-js';
+import { requireUid } from '../_lib/firebaseAuth.js';
+
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -25,7 +27,11 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   if (req.method === 'GET') {
-    const { uid } = req.query;
+    // uid from the VERIFIED token, never the query string. This endpoint used
+    // to return any player's data to anyone who passed their uid.
+    const callerUid = await requireUid(req, res);
+    if (!callerUid) return;
+    const uid = callerUid;
     if (!uid) return res.status(400).json({ error: 'uid required' });
     const { data, error } = await supabase
       .from('crickle_challenges')
@@ -39,9 +45,13 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     const {
       code, mode, target_player,
-      sender_uid, sender_name, sender_score,
+      sender_name, sender_score,
       receiver_uid, receiver_name, receiver_score
     } = req.body;
+    // The sender is whoever holds the token, not whoever the body names.
+    const postUid = await requireUid(req, res);
+    if (!postUid) return;
+    const sender_uid = postUid;
 
     if (!code) return res.status(400).json({ error: 'code required' });
 
