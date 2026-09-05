@@ -37,6 +37,30 @@
 -- the policies below are the obvious ones.
 -- ---------------------------------------------------------------------------
 
+-- ---------------------------------------------------------------------------
+-- WHY EVERY POLICY BELOW NAMES BOTH `authenticated` AND `anon`
+--
+-- Supabase's own guidance for Firebase third-party auth is to set a custom
+-- claim `role: "authenticated"` on every Firebase user, because PostgREST picks
+-- the database role from that claim and falls back to `anon` when it is absent.
+-- Doing that means running admin code over every existing user AND arranging it
+-- for every future one, and a user whose claim was missed would be silently
+-- denied everything.
+--
+-- These policies do not depend on it. They are granted to both roles and gated
+-- on the SUBJECT rather than the role, so they behave identically whether the
+-- token maps to `authenticated` or to `anon`.
+--
+-- Naming `anon` does NOT weaken them. The test is `uid = public.firebase_uid()`,
+-- and for a caller with no token firebase_uid() is NULL, so the comparison is
+-- NULL, which is not true, and the row is denied. An unauthenticated request
+-- therefore still sees nothing — which is the whole point, and is the thing to
+-- re-verify after applying this (see the curl below).
+--
+-- Setting the claim anyway is fine and slightly tidier; it is just not load
+-- bearing, and this file deliberately does not require it.
+-- ---------------------------------------------------------------------------
+
 -- Helper: the caller's Firebase uid, or NULL when unauthenticated.
 -- Written as a function so the policies read plainly and there is one place to
 -- change if the claim ever moves.
