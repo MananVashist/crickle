@@ -4,15 +4,20 @@ import { requireUid } from '../_lib/firebaseAuth.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  // Still the anon key, deliberately.
+  // SERVICE ROLE. Server-side, and required for RLS.
   //
-  // This change is ONLY about who the caller is allowed to be. Moving these
-  // routes to service_role belongs with enabling RLS on the crickle_* tables,
-  // and that is a separate branch which cannot ship until a service-role key
-  // exists in this project's environment. Switching the key here without those
-  // policies would take a powerful credential for no benefit; switching it
-  // WITH them, before the key is set, would 500 every route. So: unchanged.
-  process.env.SUPABASE_ANON_KEY
+  // The crickle_* tables now carry owner policies keyed on the caller's
+  // Firebase uid. These routes legitimately need to touch rows that are NOT
+  // the caller's: resolving an invite token to a friendship you have not
+  // joined yet, and reading your OPPONENT's push token to notify them. Neither
+  // is expressible as a per-user policy, and both are exactly what a trusted
+  // server is for.
+  //
+  // Safe because these routes now establish WHO the caller is first
+  // (api/_lib/firebaseAuth.js) rather than believing a uid from the request.
+  // service_role without that check would just be a bigger version of the hole
+  // it replaces.
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 // Match the exact winning logic from your App.js

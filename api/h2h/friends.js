@@ -4,7 +4,7 @@ import { requireUid } from '../_lib/firebaseAuth.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  // Still the anon key, deliberately - see the other h2h routes.
+  // SERVICE ROLE, required for RLS - see the other h2h routes.
   //
   // This is server-side code, so the anon key bought nothing here - and it was
   // what made locking these tables down impossible. On 2026-09-05 the public
@@ -17,7 +17,7 @@ const supabase = createClient(
   //
   // Reading as service_role bypasses RLS, so RLS can now be enabled with NO
   // policies: the browser gets nothing, these routes keep working unchanged.
-  process.env.SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 export default async function handler(req, res) {
