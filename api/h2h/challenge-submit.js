@@ -1,7 +1,17 @@
 ﻿import { createClient } from '@supabase/supabase-js';
+import { requireUid } from '../_lib/firebaseAuth.js';
+
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
+  // Still the anon key, deliberately.
+  //
+  // This change is ONLY about who the caller is allowed to be. Moving these
+  // routes to service_role belongs with enabling RLS on the crickle_* tables,
+  // and that is a separate branch which cannot ship until a service-role key
+  // exists in this project's environment. Switching the key here without those
+  // policies would take a powerful credential for no benefit; switching it
+  // WITH them, before the key is set, would 500 every route. So: unchanged.
   process.env.SUPABASE_ANON_KEY
 );
 
@@ -32,7 +42,13 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   if (req.method === 'POST') {
-    const { challenge_id, uid, score } = req.body;
+    // uid is the VERIFIED caller. The isSender / isReceiver checks below were
+    // comparing the challenge against a uid the caller had just declared about
+    // itself, which is not a check. Submitting a score as another player was
+    // possible; now it is not.
+    const uid = await requireUid(req, res);
+    if (!uid) return;
+    const { challenge_id, score } = req.body;
 
     if (!challenge_id || !uid || !score) {
       return res.status(400).json({ error: 'challenge_id, uid, and score required' });

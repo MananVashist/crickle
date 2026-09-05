@@ -26,6 +26,62 @@ const FIREBASE_CONFIG = {
 const firebaseApp = initFirebase(FIREBASE_CONFIG);
 const firebaseAuth = getAuth(firebaseApp);
 
+/**
+ * Every call to our own API carries the caller's Firebase ID token.
+ *
+ * The h2h routes used to take the uid from a query string or a request body and
+ * trust it, so `GET /api/h2h/friends?uid=<anyone>` returned that person's
+ * friends and a score could be submitted as another player. Those routes now
+ * derive the uid from this token instead, so it has to be sent or they answer
+ * 401.
+ *
+ * getIdToken() serves a cached token until it is close to expiry and refreshes
+ * transparently, so this is not a network round trip per call.
+ */
+export async function authHeaders(extra = {}) {
+  const user = firebaseAuth.currentUser;
+  if (!user) return { ...extra };
+  try {
+    return { ...extra, Authorization: `Bearer ${await user.getIdToken()}` };
+  } catch {
+    // A token that cannot be minted means the API will 401, which each caller
+    // already handles. Better that than throwing inside an event handler.
+    return { ...extra };
+  }
+}
+
+/**
+ * A Supabase client that authenticates AS THE FIREBASE USER.
+ *
+ * supabase-js takes an `accessToken` hook, and with Supabase configured to
+ * accept this Firebase project's JWTs, `auth.jwt()->>'sub'` inside a policy is
+ * the Firebase uid. That is what makes real owner policies possible on the
+ * crickle_* tables: before this there was no identity at all on the Supabase
+ * side, every request arrived as `anon`, and the only reason anything worked
+ * was that RLS was switched off.
+ *
+ * Created lazily and once — supabase-js opens a realtime websocket per client,
+ * and the previous code built a new client inside two different effects.
+ */
+let sbClient = null;
+async function getSupabase() {
+  if (!sbClient) {
+    const { createClient } = await import('@supabase/supabase-js');
+    sbClient = createClient(
+      import.meta.env.VITE_SUPABASE_URL,
+      import.meta.env.VITE_SUPABASE_ANON_KEY,
+      {
+        accessToken: async () => {
+          const user = firebaseAuth.currentUser;
+          if (!user) return null;
+          try { return await user.getIdToken(); } catch { return null; }
+        },
+      },
+    );
+  }
+  return sbClient;
+}
+
 // ─────────────────────────────────────────────────────────────
 // API URLs  (absolute on native, relative on web)
 // ─────────────────────────────────────────────────────────────
@@ -460,7 +516,7 @@ export default function App() {
 
   const fetchFriends = useCallback(async (uid) => {
     try {
-      const res = await fetch(`${FRIENDS_API}?uid=${encodeURIComponent(uid)}`);
+      const res = await fetch(`${FRIENDS_API}?uid=${encodeURIComponent(uid)}`, { headers: await authHeaders() });
       if (!res.ok) return;
       const data = await res.json();
       if (Array.isArray(data)) setFriends(data.filter(f => f.status === 'friends'));
@@ -469,7 +525,7 @@ export default function App() {
 
   const fetchH2HChallenges = useCallback(async (uid) => {
     try {
-      const res = await fetch(`${CHALLENGE_NEW_API}?uid=${encodeURIComponent(uid)}`);
+      const res = await fetch(`${CHALLENGE_NEW_API}?uid=${encodeURIComponent(uid)}`, { headers: await authHeaders() });
       if (!res.ok) return;
       const data = await res.json();
       if (Array.isArray(data)) setH2hChallenges(data);
@@ -532,13 +588,21 @@ export default function App() {
           async ({ value: token }) => {
             console.log('FCM Token generated:', token);
             try {
-              const { createClient } = await import('@supabase/supabase-js');
-              const supabase = createClient(
-                import.meta.env.VITE_SUPABASE_URL,
-                import.meta.env.VITE_SUPABASE_ANON_KEY
-              );
-
-              const { error } = await supabase.from('crickle_user_tokens').upsert({
+              // A direct upsert again — but as the SIGNED-IN user, not as anon.
+              //
+              // This is the write that made the whole table readable: it needed
+              // the anon role to have access, and PostgREST's upsert is
+              // INSERT ... ON CONFLICT DO UPDATE, which must READ the row it
+              // writes. So "let the client write its own token" and "let anyone
+              // read every token" were the same permission, and no arrangement
+              // of policies could separate them while the caller was anonymous.
+              //
+              // With a Firebase identity the policy is simply
+              // `uid = auth.jwt()->>'sub'`: this row is readable and writable by
+              // its owner and nobody else, and the upsert works because reading
+              // your OWN row is allowed.
+              const sb = await getSupabase();
+              const { error } = await sb.from('crickle_user_tokens').upsert({
                 uid: authUser.uid,
                 fcm_token: token,
                 updated_at: new Date().toISOString(),
@@ -584,14 +648,25 @@ export default function App() {
     }
   }, [menuTab, authUser, fetchFriends, fetchH2HChallenges]);
 
-  // ── Supabase realtime ──
+  // ── Head-to-head refresh (was a Supabase realtime subscription) ──
   useEffect(() => {
     if (!authUser) return;
+    // Realtime, restored — and now AUTHORISED rather than merely unguarded.
+    //
+    // This subscription previously worked only because RLS was off on both
+    // tables: Realtime honours RLS, so an unguarded table and a working
+    // postgres_changes feed were the same fact. Closing the tables would have
+    // silently killed it, and with no polling fallback anywhere in this app an
+    // incoming challenge would simply never have appeared.
+    //
+    // getSupabase() attaches the Firebase ID token, so the policies on
+    // crickle_challenges and crickle_friendships match this user's own rows and
+    // the feed is delivered because the user is entitled to it — not because
+    // nothing was checking.
     let cleanup;
     const setupRealtime = async () => {
       try {
-        const { createClient } = await import('@supabase/supabase-js');
-        const sb  = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY);
+        const sb = await getSupabase();
         const uid = authUser.uid;
         const channel = sb.channel('h2h-realtime')
           .on('postgres_changes', { event:'*', schema:'public', table:'crickle_challenges',  filter:`sender_uid=eq.${uid}`   }, () => fetchH2HChallenges(uid))
@@ -603,7 +678,26 @@ export default function App() {
       } catch {}
     };
     setupRealtime();
-    return () => { cleanup?.(); };
+
+    // A slow safety net UNDER realtime, not a replacement for it.
+    //
+    // Realtime can drop a socket, and a missed challenge is the one thing this
+    // screen exists to show. 60s is deliberately far slower than the 20s used
+    // while realtime was disabled: it is a backstop, so it should be cheap.
+    const poll = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      fetchH2HChallenges(authUser.uid);
+      fetchFriends(authUser.uid);
+    };
+    const timer = setInterval(poll, 60000);
+    const onVisible = () => { if (!document.hidden) poll(); };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      cleanup?.();
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [authUser, fetchFriends, fetchH2HChallenges]);
 
   // ── Google sign-in ──
@@ -731,11 +825,22 @@ export default function App() {
 
   useEffect(() => {
     if (!pendingFriendReq?.token || pendingFriendReq.senderName) return;
-    fetch(`${FRIENDS_API}?token=${pendingFriendReq.token}`)
+    // Resolving an invite token now needs a signed-in caller, because the row
+    // it returns carries both players' names and uids — it used to be readable
+    // by anyone holding the link, or guessing.
+    //
+    // authUser is in the deps for that reason: opening an invite link while
+    // signed out is the NORMAL path (the link is how you arrive), so this must
+    // retry once sign-in completes rather than leaving the name blank forever.
+    // H2HTab falls back to "Friend request received!" in the meantime, so the
+    // accept flow works either way — this only restores the sender's name.
+    if (!authUser) return;
+    authHeaders()
+      .then(headers => fetch(`${FRIENDS_API}?token=${pendingFriendReq.token}`, { headers }))
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.user_a_name) setPendingFriendReq(prev => ({ ...prev, senderName: d.user_a_name })); })
       .catch(() => {});
-  }, [pendingFriendReq?.token]);
+  }, [pendingFriendReq?.token, pendingFriendReq?.senderName, authUser]);
 
   const handleDailyStart = () => { setActiveTab('daily'); setScreen('game'); };
 
@@ -883,8 +988,9 @@ export default function App() {
     try {
       const res = await fetch(CHALLENGE_NEW_API, {
         method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify({ friendship_id: friendship.id, sender_uid: myUid, sender_name: myName, receiver_uid: oppUid, receiver_name: oppName, mode: target.format, player_code: playerCode, target_player: target.name }),
+        headers: await authHeaders({ 'Content-Type':'application/json' }),
+        // sender_uid is no longer sent: the server takes it from the token.
+        body: JSON.stringify({ friendship_id: friendship.id, sender_name: myName, receiver_uid: oppUid, receiver_name: oppName, mode: target.format, player_code: playerCode, target_player: target.name }),
       });
       if (!res.ok) return;
       const challenge = await res.json();
@@ -929,8 +1035,10 @@ export default function App() {
     try {
       await fetch(CHALLENGE_SUBMIT_API, {
         method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify({ challenge_id: challengeId, uid: authUser.uid, score }),
+        headers: await authHeaders({ 'Content-Type':'application/json' }),
+        // uid is no longer sent: the server takes it from the token, which is
+        // what makes its isSender / isReceiver check mean anything.
+        body: JSON.stringify({ challenge_id: challengeId, score }),
       });
       try { 
         const saved = JSON.parse(localStorage.getItem('crickle_h2h_state_v2') || '{}');
@@ -946,8 +1054,9 @@ export default function App() {
   const generateFriendRequestLink = useCallback(async () => {
     if (!authUser) return null;
     try {
-      const body = { action:'request', sender_uid: authUser.uid, sender_name: authUser.displayName || authUser.email?.split('@')[0] || 'Player' };
-      const res  = await fetch(FRIENDS_API, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+      // sender_uid is no longer sent: the server takes it from the token.
+      const body = { action:'request', sender_name: authUser.displayName || authUser.email?.split('@')[0] || 'Player' };
+      const res  = await fetch(FRIENDS_API, { method:'POST', headers: await authHeaders({ 'Content-Type':'application/json' }), body: JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) return null;
       return `https://crickle-game.vercel.app/?fr=${data.token}`;
